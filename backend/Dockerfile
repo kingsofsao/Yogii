@@ -1,16 +1,19 @@
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install packages into a venv that any user can read
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 
 # Final runtime image
 FROM python:3.11-slim
@@ -22,17 +25,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed wheels/packages from builder
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
-ENV PYTHONPATH=/app
+RUN useradd -m -u 1000 yogii
 
-# Create unprivileged application user
-RUN useradd -m -u 1000 yogii && chown -R yogii:yogii /app
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-COPY --chown=yogii:yogii . /app/backend/
+# Copy only the backend folder, not the whole repo
+COPY --chown=yogii:yogii backend/ /app/backend/
 COPY --chown=yogii:yogii alembic.ini /app/
 COPY --chown=yogii:yogii database/ /app/database/
+RUN chown yogii:yogii /app
 
 USER yogii
 
