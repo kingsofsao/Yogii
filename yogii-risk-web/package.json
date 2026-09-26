@@ -1,0 +1,19 @@
+{
+  "name": "yogii-risk-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simulated UPI-style payments with a prototype fraud-risk engine. Browser-only, no runtime dependencies. Synthetic data only.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "train": "python ml/train.py",
+    "scenarios": "python ml/check_scenarios.py",
+    "build": "python scripts/build.py",
+    "test": "node --test tests/engine.test.js",
+    "e2e": "python tests/e2e_test.py",
+    "serve": "python -m http.server -d dist 8080",
+    "check": "python ml/train.py && python ml/check_scenarios.py && python scripts/build.py && node --test tests/engine.test.js && python tests/e2e_test.py"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

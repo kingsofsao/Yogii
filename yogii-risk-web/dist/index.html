@@ -1,0 +1,1891 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7O2IXkKTYPnEcDj5/c6/lmpc9ymxHo30ueO63mokSEw='; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Yogii Risk Web: simulated UPI-style payments with a prototype fraud-risk check. No real money, no real UPI.">
+<meta name="referrer" content="no-referrer">
+<title>Yogii Risk Web (simulated)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f4fd8'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='18' font-weight='700' fill='white' text-anchor='middle'%3EY%3C/text%3E%3C/svg%3E">
+<style>
+/* Yogii Risk Web: neutral base, dark text, one restrained accent. Light and dark themes. */
+
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --text: #121620;
+  --muted: #5a6373;
+  --border: #e2e5ea;
+  --accent: #2f4fd8;
+  --accent-hover: #2541bd;
+  --accent-ink: #ffffff;
+  --accent-soft: #eceffc;
+  --ok: #157046;
+  --ok-soft: #e6f4ec;
+  --amber: #8a5a00;
+  --amber-soft: #fbf1dc;
+  --orange: #a8410b;
+  --orange-soft: #fcebe0;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --focus: #2f4fd8;
+  --shadow: 0 1px 2px rgba(16, 22, 32, .05), 0 4px 16px rgba(16, 22, 32, .04);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1015;
+    --surface: #151920;
+    --surface-2: #1c212a;
+    --text: #e7eaf0;
+    --muted: #9aa3b3;
+    --border: #2a303b;
+    --accent: #8397ff;
+    --accent-hover: #9aabff;
+    --accent-ink: #0d1015;
+    --accent-soft: #1e2440;
+    --ok: #5fcf95;
+    --ok-soft: #13291f;
+    --amber: #f0c060;
+    --amber-soft: #2c2412;
+    --orange: #ff9c66;
+    --orange-soft: #2f1c12;
+    --danger: #ff7b72;
+    --danger-soft: #331716;
+    --focus: #9aabff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1015;
+  --surface: #151920;
+  --surface-2: #1c212a;
+  --text: #e7eaf0;
+  --muted: #9aa3b3;
+  --border: #2a303b;
+  --accent: #8397ff;
+  --accent-hover: #9aabff;
+  --accent-ink: #0d1015;
+  --accent-soft: #1e2440;
+  --ok: #5fcf95;
+  --ok-soft: #13291f;
+  --amber: #f0c060;
+  --amber-soft: #2c2412;
+  --orange: #ff9c66;
+  --orange-soft: #2f1c12;
+  --danger: #ff7b72;
+  --danger-soft: #331716;
+  --focus: #9aabff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { line-height: 1.25; margin: 0 0 .6rem; letter-spacing: -.01em; }
+h1 { font-size: 1.55rem; font-weight: 700; }
+h2 { font-size: 1.02rem; font-weight: 650; }
+p { margin: 0 0 .6rem; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { color: var(--accent-hover); }
+code, .mono { font-family: var(--mono); font-size: .9em; }
+ul, ol { margin: 0; padding: 0; }
+button, input, select { font: inherit; color: inherit; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: 12px; top: -48px; z-index: 50; background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+.skip-link:focus { top: 12px; }
+.muted { color: var(--muted); }
+.small { font-size: .85rem; }
+.center { text-align: center; }
+.boot { padding: 48px 16px; text-align: center; color: var(--muted); }
+.icon { width: 18px; height: 18px; flex: none; }
+
+/* ---------- shell ---------- */
+.sim-banner {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  padding: 7px 16px; font-size: .82rem; color: var(--muted);
+  background: var(--surface-2); border-bottom: 1px solid var(--border); text-align: center;
+}
+.sim-banner .icon { width: 15px; height: 15px; color: var(--accent); }
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px max(16px, calc((100% - 1000px) / 2));
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text); text-decoration: none; font-size: 1.05rem; }
+.brand:hover { color: var(--text); }
+.logo { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-size: .95rem; }
+.brand-sub { color: var(--muted); font-weight: 500; font-size: .85rem; }
+.nav { display: flex; gap: 4px; }
+.nav-item { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; color: var(--muted); text-decoration: none; font-weight: 550; }
+.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-item.active { color: var(--accent); background: var(--accent-soft); }
+.bottomnav { display: none; }
+
+.main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
+.main.narrow { max-width: 480px; }
+.main:focus { outline: none; }
+
+/* ---------- cards & layout ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px; box-shadow: var(--shadow); margin-bottom: 16px; min-width: 0;
+}
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.grid-home, .grid-2, .risk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid-home > .card, .grid-2 > .card, .risk-grid > .card { margin-bottom: 0; }
+.grid-home, .grid-2, .risk-grid { margin-bottom: 16px; }
+.span-2 { grid-column: 1 / -1; }
+.grid-amount { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.grid-amount > .card { margin-bottom: 0; }
+.stack { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 10px 18px; border-radius: 12px; border: 1px solid transparent;
+  font-weight: 600; text-decoration: none; cursor: pointer; background: var(--surface-2); color: var(--text);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.btn:hover { color: var(--text); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--accent-hover); color: var(--accent-ink); }
+.btn.ghost { background: transparent; border-color: var(--border); }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn.danger { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+.btn.block { width: 100%; }
+.btn.back { min-height: 36px; padding: 6px 12px 6px 8px; margin-bottom: 12px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- forms ---------- */
+.form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label, legend { font-weight: 600; font-size: .9rem; }
+input[type=text], input[type=email], input[type=password], input[type=tel], input[type=search], select {
+  width: 100%; min-height: 44px; padding: 10px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+input:focus-visible, select:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent); outline-offset: 0; border-color: var(--focus); }
+input[aria-invalid="true"] { border-color: var(--danger); }
+.hint { margin: 0; color: var(--muted); font-size: .82rem; }
+.field-error, .form-error { margin: 0; color: var(--danger); font-size: .85rem; font-weight: 550; }
+.form-error:empty { display: none; }
+fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.toggle, .check { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.toggle input, .check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.amount-input { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 12px; background: var(--surface); }
+.amount-input:focus-within { border-color: var(--focus); outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent); }
+.amount-input span { font-size: 1.5rem; color: var(--muted); }
+.amount-input input { border: 0; outline: none; font-size: 1.6rem; font-weight: 650; padding: 8px 0; min-height: 56px; background: transparent; }
+.amount-input input:focus-visible { outline: none; }
+
+/* ---------- auth ---------- */
+.auth-head { text-align: center; margin: 12px 0 18px; }
+.demo-accounts ul { list-style: none; display: grid; gap: 6px; margin-bottom: 8px; }
+.demo-accounts li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+
+/* ---------- chips & pills ---------- */
+.chip, .pill, .sim-tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px;
+  font-size: .76rem; font-weight: 650; white-space: nowrap; border: 1px solid transparent;
+}
+.sim-tag { background: var(--surface-2); color: var(--muted); border-color: var(--border); text-transform: uppercase; letter-spacing: .04em; font-size: .68rem; }
+.band-low, .level-normal, .level-low, .status-completed { background: var(--ok-soft); color: var(--ok); }
+.band-medium, .level-elevated, .level-medium, .status-pending, .status-needs_verification, .status-assessing { background: var(--amber-soft); color: var(--amber); }
+.band-high, .level-high { background: var(--orange-soft); color: var(--orange); }
+.band-very_high, .status-blocked, .status-failed { background: var(--danger-soft); color: var(--danger); }
+.status-rejected, .status-reversed, .status-draft { background: var(--surface-2); color: var(--muted); }
+
+/* ---------- home ---------- */
+.greeting { margin-bottom: 16px; }
+.balance-card { position: relative; overflow: hidden; }
+.balance-top { display: flex; justify-content: space-between; align-items: center; }
+.label { font-size: .85rem; color: var(--muted); font-weight: 600; margin: 0; }
+.balance { font-size: 2.1rem; font-weight: 750; letter-spacing: -.02em; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.stamp {
+  border: 2px solid var(--accent); color: var(--accent); border-radius: 6px; padding: 1px 8px;
+  font-size: .7rem; font-weight: 800; letter-spacing: .12em; transform: rotate(-4deg); opacity: .85;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.facts { list-style: none; display: grid; gap: 8px; }
+.facts li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 8px; flex-wrap: wrap; }
+.facts li:last-child { border-bottom: 0; padding-bottom: 0; }
+.facts span:first-child { color: var(--muted); }
+.facts strong { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.bullets { padding-left: 18px; display: grid; gap: 6px; }
+.rows { list-style: none; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-radius: 10px; color: var(--text); text-decoration: none; }
+.row:hover { background: var(--surface-2); color: var(--text); }
+.rows li + li { border-top: 1px solid var(--border); }
+.row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub { color: var(--muted); font-size: .82rem; }
+.row-end { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.amount { font-weight: 650; font-variant-numeric: tabular-nums; }
+.amount.in { color: var(--ok); }
+.avatar {
+  display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent); font-weight: 700;
+}
+.avatar.merchant { border-radius: 10px; background: var(--surface-2); color: var(--muted); }
+.avatar.lg { width: 56px; height: 56px; font-size: 1.3rem; }
+.scenarios { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.scenario {
+  width: 100%; height: 100%; text-align: left; display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+}
+.scenario:hover { border-color: var(--accent); background: var(--accent-soft); }
+.scenario span { color: var(--muted); font-size: .85rem; }
+
+/* ---------- send flow ---------- */
+.stepper { list-style: none; display: flex; gap: 6px; margin-bottom: 16px; counter-reset: step; }
+.stepper li { flex: 1; font-size: .74rem; color: var(--muted); padding-top: 8px; border-top: 3px solid var(--border); counter-increment: step; }
+.stepper li.done { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.stepper li.current { border-color: var(--accent); color: var(--text); font-weight: 650; }
+.pick { list-style: none; display: grid; gap: 4px; }
+.pick-item { display: flex; gap: 12px; align-items: center; width: 100%; padding: 8px; border: 0; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; }
+.pick-item:hover { background: var(--surface-2); }
+.pick-item > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.recipient-card { display: flex; gap: 16px; align-items: center; }
+.recipient-name { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.limits h2 { margin-bottom: 4px; }
+.limit-rows { list-style: none; display: grid; gap: 8px; margin: 12px 0; }
+.limit-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; border-left: 4px solid; background: var(--surface-2); }
+.limit-row div { display: flex; flex-direction: column; }
+.lr-0 { border-color: var(--ok); }
+.lr-1 { border-color: var(--amber); }
+.lr-2 { border-color: var(--orange); }
+.limit-val { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.limit-above { display: flex; gap: 8px; align-items: flex-start; color: var(--danger); font-weight: 600; font-size: .9rem; }
+
+/* ---------- risk ---------- */
+.score-card { display: flex; gap: 20px; align-items: center; border-left: 6px solid var(--border); }
+.band-bg-low { border-left-color: var(--ok); }
+.band-bg-medium { border-left-color: var(--amber); }
+.band-bg-high { border-left-color: var(--orange); }
+.band-bg-very_high { border-left-color: var(--danger); }
+.score { display: flex; align-items: baseline; }
+.score-num { font-size: 3rem; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.score-of { color: var(--muted); font-weight: 600; }
+.score-msg { font-weight: 600; margin-top: 6px; }
+.bar-row { margin-bottom: 12px; }
+.bar-label { display: flex; justify-content: space-between; font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border); }
+.fill { display: block; height: 100%; border-radius: 999px; }
+.lvl-low { background: var(--ok); }
+.lvl-moderate { background: var(--amber); }
+.lvl-high { background: var(--orange); }
+.chain { list-style: none; display: grid; gap: 0; margin-top: 8px; }
+.chain li { display: flex; flex-direction: column; gap: 2px; padding: 6px 0 6px 18px; border-left: 2px solid var(--border); position: relative; }
+.chain li::before { content: ""; position: absolute; left: -6px; top: 11px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.chain .node { font-weight: 650; }
+.chain .edge { color: var(--muted); font-size: .84rem; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.path { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-family: var(--mono); font-size: .85rem; }
+.path span:not(.arrow) { background: var(--surface-2); border: 1px solid var(--border); padding: 3px 8px; border-radius: 8px; }
+.arrow { color: var(--muted); }
+.reasons { list-style: none; display: grid; gap: 8px; }
+.reasons li { display: flex; gap: 10px; align-items: flex-start; }
+.reasons .icon { color: var(--orange); margin-top: 2px; }
+.decision { border: 2px solid var(--accent); }
+.decision .warn { display: flex; gap: 8px; align-items: center; color: var(--danger); font-weight: 650; }
+.decide { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.btn.ok, .btn.reject { flex: 1 1 160px; min-height: 56px; font-size: 1.1rem; border-radius: 14px; }
+.btn.ok { background: var(--ok); color: #fff; }
+.btn.ok .icon, .btn.reject .icon { width: 22px; height: 22px; }
+:root[data-theme="dark"] .btn.ok { color: #0d1015; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.ok { color: #0d1015; } }
+.btn.reject { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 10px; background: var(--accent-soft); }
+.notice .icon { color: var(--accent); margin-top: 2px; }
+.pin-form input#pin { font-size: 1.6rem; letter-spacing: .6em; text-align: center; max-width: 220px; }
+
+/* ---------- result & detail ---------- */
+.result { text-align: center; padding: 28px 18px; }
+.result .decide { justify-content: center; }
+.result-icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 12px; background: var(--surface-2); }
+.result-icon .icon { width: 32px; height: 32px; }
+.result-completed .result-icon { background: var(--ok-soft); color: var(--ok); }
+.result-pending .result-icon { background: var(--amber-soft); color: var(--amber); }
+.result-failed .result-icon, .result-blocked .result-icon { background: var(--danger-soft); color: var(--danger); }
+.result-amount { font-size: 2rem; font-weight: 750; margin: 0 0 4px; font-variant-numeric: tabular-nums; }
+.processing { padding: 48px 18px; }
+.spinner { width: 40px; height: 40px; margin: 0 auto 16px; border-radius: 50%; border: 4px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.timeline { list-style: none; display: grid; gap: 10px; }
+.timeline li { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; align-items: baseline; }
+.t-status { font-weight: 650; text-transform: capitalize; }
+.tech summary { cursor: pointer; font-weight: 650; }
+.tech table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: .86rem; }
+.tech th, .tech td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.tech th { font-weight: 500; color: var(--muted); }
+.filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.error-card { border-color: var(--danger); }
+
+/* ---------- dialog ---------- */
+dialog { border: 1px solid var(--border); border-radius: var(--radius); padding: 0; background: var(--surface); color: var(--text); max-width: min(440px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0, 0, 0, .25); }
+dialog::backdrop { background: rgba(10, 12, 16, .5); }
+.dialog-body { padding: 20px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 760px) {
+  .topnav { display: none; }
+  .bottomnav {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+  .bottomnav .nav { justify-content: space-around; }
+  .bottomnav .nav-item { flex-direction: column; gap: 2px; font-size: .72rem; padding: 6px 10px; min-width: 64px; }
+  .bottomnav .nav-item .icon { width: 22px; height: 22px; }
+  .main { padding: 18px 16px 104px; }
+  .grid-home, .grid-2, .risk-grid, .grid-amount, .filters { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 1.35rem; }
+  .balance { font-size: 1.8rem; }
+  .score-num { font-size: 2.5rem; }
+  .timeline li { grid-template-columns: 1fr; gap: 0; }
+  .stepper li span { display: none; }
+  .stepper li.current span { display: inline; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div id="app">
+  <noscript><p class="boot">Yogii Risk Web needs JavaScript. It runs entirely in your browser and is a simulation: no real money moves.</p></noscript>
+  <p class="boot">Loading Yogii (simulated payments)&hellip;</p>
+</div>
+<div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<script id="yogii-model" type="application/json">{"format":"yogii-risk-model","version":"1.0.0","synthetic":true,"notice":"Trained on synthetic data only. Prototype thresholds, not RBI, NPCI or bank standards.","engine":"xgboost 3.2.0","seed":42,"data_sha256":"6397e5af02b6055f6857b5fdd7d473a2fbdc65458c6fc1909f953da84f32fecf","compare":"float32","features":{"amount":["log_amount","amount_ratio","amount_z","share_of_balance","is_round"],"behavior":["is_new_recipient","prior_count","tx_count_30m","value_24h_ratio","indirect_connection","is_p2m"],"context":["is_night","hour_deviation","new_device","account_age_days"]},"stacker":{"inputs":["p_amount","p_behavior","p_context","graph","receiver"],"intercept":0.04732353019849152,"weights":[0.38116087036123547,0.2929696121002205,0.14920708265942237,0.43949856857286274,0.7550128524302476],"r2":0.9418},"bands":[{"name":"LOW","min":0,"max":29},{"name":"MEDIUM","min":30,"max":59},{"name":"HIGH","min":60,"max":84},{"name":"VERY_HIGH","min":85,"max":100}],"graph":{"max_hops":3,"window_minutes":120,"amount_tolerance":0.25,"hop_factor":[0.0,0.2,0.5,0.8],"indirect_days":90},"receiver":{"watchlist":1.0,"unregistered":0.25,"new_account":0.2,"new_account_days":7,"many_payers":0.25,"many_payers_count":3,"pass_through":0.3,"pass_through_ratio":0.7,"levels":{"elevated":0.3,"high":0.6}},"summary":{"precision":0.9223,"recall":0.8912,"pr_auc":0.9763,"stacker_r2":0.9408},"components":{"amount":{"base_score":0.3849875,"features":["log_amount","amount_ratio","amount_z","share_of_balance","is_round"],"trees":[[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.2861,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":1,"t":1.6242,"l":9,"r":10},{"f":3,"t":0.2861,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.32189116},{"v":-0.22045822},{"v":0.019084474},{"v":0.16665813},{"v":0.17480794},{"v":0.34990418},{"v":0.45915595},{"v":0.51890314}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.2861,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":3,"t":0.2101,"l":7,"r":8},{"f":0,"t":8.3882,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.2864909},{"v":-0.16530463},{"v":-0.02510876},{"v":0.11261437},{"v":0.1423889},{"v":0.27980906},{"v":0.3365275},{"v":0.38969204}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.2861,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":3,"t":0.2101,"l":7,"r":8},{"f":1,"t":1.9722,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.26318523},{"v":-0.1176688},{"v":0.017930988},{"v":0.1462193},{"v":0.101887606},{"v":0.24061203},{"v":0.28574574},{"v":0.32834706}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.2861,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":4,"t":1,"l":7,"r":8},{"f":3,"t":0.4448,"l":9,"r":10},{"f":3,"t":0.1312,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.2470841},{"v":-0.05345261},{"v":-0.022561094},{"v":0.09567603},{"v":0.045196723},{"v":0.16950887},{"v":0.24143302},{"v":0.29210544}],[{"f":2,"t":3.3646,"l":1,"r":2},{"f":3,"t":0.2861,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":0,"t":9.9017,"l":9,"r":10},{"f":3,"t":0.2861,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.2374465},{"v":-0.07742593},{"v":0.000696507},{"v":0.24898724},{"v":0.07389458},{"v":0.20601681},{"v":0.21625602},{"v":0.26856148}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":2,"t":0.0427,"l":9,"r":10},{"f":2,"t":2.3232,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.23025815},{"v":-0.09932903},{"v":-0.1060861},{"v":0.045002047},{"v":-0.2879635},{"v":0.078101486},{"v":0.19710383},{"v":0.25216416}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":3,"t":0.4448,"l":9,"r":10},{"f":3,"t":0.1078,"l":11,"r":12},{"v":0.2402374},{"v":-0.2239637},{"v":-0.07122331},{"v":-0.03837678},{"v":0.10771},{"v":0.050349206},{"v":0.15520307}],[{"f":2,"t":3.3646,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":0,"t":9.0038,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.21845742},{"v":-0.07304076},{"v":-0.030308729},{"v":0.07731693},{"v":0.020440022},{"v":0.14527912},{"v":0.1584949},{"v":0.2312951}],[{"f":2,"t":2.3232,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":1,"t":4.1663,"l":5,"r":6},{"f":4,"t":1,"l":7,"r":8},{"f":3,"t":0.2861,"l":9,"r":10},{"f":3,"t":0.4448,"l":11,"r":12},{"f":1,"t":7.2036,"l":13,"r":14},{"v":-0.21350789},{"v":-0.053530395},{"v":-0.08697158},{"v":0.015012177},{"v":0.006484219},{"v":0.1845684},{"v":0.13882013},{"v":0.22446008}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.1631,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":0,"t":7.2793,"l":9,"r":10},{"f":1,"t":4.1663,"l":11,"r":12},{"v":0.2190698},{"v":-0.21177335},{"v":-0.09467694},{"v":-0.22090414},{"v":0.018439554},{"v":0.031403422},{"v":0.12405653}],[{"f":1,"t":2.273,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":4,"t":1,"l":7,"r":8},{"f":3,"t":0.4448,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":3,"t":0.0141,"l":13,"r":14},{"v":-0.21050806},{"v":0.019162077},{"v":-0.02291226},{"v":0.058223773},{"v":0.02438065},{"v":0.1278788},{"v":0.10084492},{"v":0.21530917}],[{"f":1,"t":2.273,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":4,"t":1,"l":7,"r":8},{"f":0,"t":8.5289,"l":9,"r":10},{"f":0,"t":9.0038,"l":11,"r":12},{"f":3,"t":0.0141,"l":13,"r":14},{"v":-0.20642316},{"v":-0.071471244},{"v":-0.055410724},{"v":0.012828936},{"v":0.022632575},{"v":0.11528518},{"v":0.092395864},{"v":0.21185164}],[{"f":1,"t":4.1663,"l":1,"r":2},{"f":1,"t":1.9722,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":3,"t":0.2101,"l":7,"r":8},{"f":3,"t":0.091,"l":9,"r":10},{"f":3,"t":0.2101,"l":11,"r":12},{"v":0.20910819},{"v":-0.20427711},{"v":-0.007079389},{"v":-0.04458682},{"v":0.029601926},{"v":0.049388345},{"v":0.15198457}],[{"f":1,"t":1.9722,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":2,"t":10.8631,"l":5,"r":6},{"f":0,"t":8.7461,"l":7,"r":8},{"f":2,"t":1.3728,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":0,"t":8.5289,"l":13,"r":14},{"v":-0.20512557},{"v":-0.08386997},{"v":0.0067230086},{"v":-0.12275984},{"v":0.011294632},{"v":0.10337533},{"v":0.118432544},{"v":0.20384948}],[{"f":1,"t":4.1663,"l":1,"r":2},{"f":3,"t":0.1078,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":2,"t":3.3646,"l":7,"r":8},{"f":0,"t":7.2793,"l":9,"r":10},{"f":3,"t":0.2101,"l":11,"r":12},{"f":3,"t":0.0141,"l":13,"r":14},{"v":-0.1879476},{"v":0.0075944364},{"v":-0.2083234},{"v":0.0020573211},{"v":0.025325973},{"v":0.14219402},{"v":0.014943275},{"v":0.20479515}],[{"f":1,"t":1.9722,"l":1,"r":2},{"f":3,"t":0.1631,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"v":-0.20294929},{"f":2,"t":1.093,"l":7,"r":8},{"f":4,"t":1,"l":9,"r":10},{"f":3,"t":0.0141,"l":11,"r":12},{"v":-0.0048407107},{"v":-0.11202699},{"v":0.00832559},{"v":0.10246012},{"v":0.027574629},{"v":0.20302252}],[{"f":1,"t":4.1663,"l":1,"r":2},{"f":3,"t":0.2861,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":0,"t":7.9175,"l":9,"r":10},{"f":3,"t":0.2101,"l":11,"r":12},{"f":3,"t":0.0141,"l":13,"r":14},{"v":-0.17917809},{"v":-0.01447992},{"v":0.13657819},{"v":0.0073388177},{"v":0.018947158},{"v":0.12786414},{"v":0.036755413},{"v":0.2012666}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.091,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":4,"t":1,"l":7,"r":8},{"f":4,"t":1,"l":9,"r":10},{"f":0,"t":7.1213,"l":11,"r":12},{"f":3,"t":0.0141,"l":13,"r":14},{"v":-0.19521199},{"v":0.051268924},{"v":-0.036357637},{"v":0.100453794},{"v":-0.27109382},{"v":0.0314645},{"v":0.03455608},{"v":0.19975321}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":1,"t":1.9722,"l":3,"r":4},{"v":0.19830333},{"f":3,"t":0.1631,"l":5,"r":6},{"f":3,"t":0.4448,"l":7,"r":8},{"v":-0.20051503},{"v":-0.008233648},{"v":0.0066457987},{"v":0.08345234}],[{"f":2,"t":10.8631,"l":1,"r":2},{"f":0,"t":7.5071,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":2,"t":3.3646,"l":7,"r":8},{"f":3,"t":0.4448,"l":9,"r":10},{"f":3,"t":0.2861,"l":11,"r":12},{"f":3,"t":0.016,"l":13,"r":14},{"v":-0.18537368},{"v":0.052444268},{"v":-0.027341444},{"v":0.061671324},{"v":0.08426455},{"v":0.18225391},{"v":0.0036613028},{"v":0.1959908}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":0,"t":7.3505,"l":3,"r":4},{"f":3,"t":0.0182,"l":5,"r":6},{"f":2,"t":5.5444,"l":7,"r":8},{"f":3,"t":0.0593,"l":9,"r":10},{"v":0.0037949197},{"v":0.19850443},{"v":-0.19430244},{"v":0.13453959},{"v":-0.052334566},{"v":0.023180274}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":1,"t":1.6242,"l":3,"r":4},{"f":3,"t":0.0205,"l":5,"r":6},{"f":3,"t":0.2101,"l":7,"r":8},{"f":4,"t":1,"l":9,"r":10},{"v":0.0037201585},{"v":0.1928364},{"v":-0.19888149},{"v":-0.019816993},{"v":-0.015777923},{"v":0.04456744}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":0,"t":7.0405,"l":3,"r":4},{"f":3,"t":0.0141,"l":5,"r":6},{"f":3,"t":0.0038,"l":7,"r":8},{"f":2,"t":0.1849,"l":9,"r":10},{"v":0.012129844},{"v":0.19099903},{"v":-0.07752441},{"v":-0.20822096},{"v":-0.083402105},{"v":0.0035492033}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":1,"t":1.0678,"l":3,"r":4},{"f":3,"t":0.0141,"l":5,"r":6},{"f":3,"t":0.1631,"l":7,"r":8},{"f":0,"t":7.4271,"l":9,"r":10},{"v":0.009951534},{"v":0.18863195},{"v":-0.19451205},{"v":-0.026991827},{"v":-0.09636479},{"v":0.014142061}],[{"f":2,"t":0.5805,"l":1,"r":2},{"f":3,"t":0.2861,"l":3,"r":4},{"f":1,"t":7.2036,"l":5,"r":6},{"f":0,"t":9.0038,"l":7,"r":8},{"f":0,"t":8.7461,"l":9,"r":10},{"f":3,"t":0.2101,"l":11,"r":12},{"f":3,"t":0.0205,"l":13,"r":14},{"v":-0.20124276},{"v":0.20511308},{"v":0.0044921944},{"v":-0.20801143},{"v":-0.0153928315},{"v":0.042611998},{"v":0.003748536},{"v":0.18573402}],[{"f":1,"t":2.8126,"l":1,"r":2},{"f":3,"t":0.1312,"l":3,"r":4},{"f":2,"t":10.8631,"l":5,"r":6},{"f":1,"t":2.273,"l":7,"r":8},{"f":3,"t":0.4448,"l":9,"r":10},{"f":0,"t":7.5771,"l":11,"r":12},{"f":0,"t":9.3927,"l":13,"r":14},{"v":-0.19745062},{"v":-0.048372902},{"v":-0.033619773},{"v":0.033613656},{"v":0.113126256},{"v":0.011740719},{"v":0.066711485},{"v":0.18017669}],[{"f":0,"t":7.0405,"l":1,"r":2},{"v":-0.19976507},{"f":1,"t":7.2036,"l":3,"r":4},{"f":3,"t":0.2101,"l":5,"r":6},{"f":3,"t":0.0232,"l":7,"r":8},{"v":-0.009195289},{"v":0.02992474},{"v":0.009720242},{"v":0.18996595}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":3,"t":0.1631,"l":3,"r":4},{"f":3,"t":0.0363,"l":5,"r":6},{"f":2,"t":1.7342,"l":7,"r":8},{"f":2,"t":5.5444,"l":9,"r":10},{"v":0.005367433},{"v":0.18768772},{"v":-0.19640385},{"v":-0.0030769191},{"v":0.007848964},{"v":0.07908165}],[{"f":4,"t":1,"l":1,"r":2},{"f":0,"t":9.9017,"l":3,"r":4},{"f":0,"t":8.5289,"l":5,"r":6},{"f":3,"t":0.016,"l":7,"r":8},{"f":3,"t":0.2861,"l":9,"r":10},{"f":1,"t":2.8126,"l":11,"r":12},{"f":2,"t":5.5444,"l":13,"r":14},{"v":-0.117801085},{"v":-0.021921154},{"v":0.01963759},{"v":0.16160122},{"v":0.3302277},{"v":0.07176067},{"v":-0.02036154},{"v":0.10701795}],[{"f":2,"t":10.8631,"l":1,"r":2},{"f":3,"t":0.8543,"l":3,"r":4},{"f":3,"t":0.2861,"l":5,"r":6},{"f":2,"t":-0.6443,"l":7,"r":8},{"f":0,"t":8.5289,"l":9,"r":10},{"f":3,"t":0.1631,"l":11,"r":12},{"v":0.18323158},{"v":-0.21158312},{"v":-0.004812141},{"v":0.18734495},{"v":0.044753116},{"v":0.09757806},{"v":0.0024233235}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":0,"t":7.0405,"l":3,"r":4},{"f":3,"t":0.0259,"l":5,"r":6},{"f":3,"t":0.0038,"l":7,"r":8},{"f":3,"t":0.0141,"l":9,"r":10},{"v":0.0030437785},{"v":0.1649465},{"v":0.048501085},{"v":-0.20275323},{"v":-0.074056745},{"v":0.006428706}],[{"f":0,"t":7.1997,"l":1,"r":2},{"f":2,"t":5.5444,"l":3,"r":4},{"f":2,"t":10.8631,"l":5,"r":6},{"f":2,"t":3.3646,"l":7,"r":8},{"v":0.09246768},{"f":0,"t":7.9175,"l":9,"r":10},{"f":0,"t":9.3927,"l":11,"r":12},{"v":-0.19176374},{"v":-0.06914093},{"v":0.042117804},{"v":-0.01223976},{"v":0.031335276},{"v":0.17197266}],[{"f":0,"t":9.9017,"l":1,"r":2},{"f":0,"t":7.9175,"l":3,"r":4},{"f":2,"t":5.5444,"l":5,"r":6},{"f":2,"t":0.5805,"l":7,"r":8},{"f":2,"t":-0.6443,"l":9,"r":10},{"f":3,"t":0.8543,"l":11,"r":12},{"v":0.13383585},{"v":-0.073413916},{"v":0.06522579},{"v":0.22988577},{"v":-0.013406793},{"v":-0.061921146},{"v":0.16168779}],[{"f":2,"t":-0.7322,"l":1,"r":2},{"v":-0.21031404},{"f":0,"t":6.672,"l":3,"r":4},{"v":-0.18823318},{"f":1,"t":7.2036,"l":5,"r":6},{"v":0.0126601085},{"v":0.1347836}],[{"f":1,"t":4.1663,"l":1,"r":2},{"f":0,"t":7.7367,"l":3,"r":4},{"f":3,"t":0.2101,"l":5,"r":6},{"f":1,"t":2.8126,"l":7,"r":8},{"f":0,"t":7.8272,"l":9,"r":10},{"f":3,"t":0.0672,"l":11,"r":12},{"f":2,"t":5.5444,"l":13,"r":14},{"v":-0.13259158},{"v":0.0011022462},{"v":0.14968447},{"v":-0.009760228},{"v":0.06824311},{"v":-0.036323685},{"v":0.034742016},{"v":0.12470593}],[{"f":4,"t":1,"l":1,"r":2},{"f":0,"t":6.672,"l":3,"r":4},{"f":3,"t":0.0232,"l":5,"r":6},{"v":-0.1749326},{"f":0,"t":7.2793,"l":7,"r":8},{"v":-0.19185214},{"f":3,"t":0.0259,"l":9,"r":10},{"v":0.0714041},{"v":-0.013238459},{"v":0.2554677},{"v":0.04474783}],[{"f":3,"t":0.091,"l":1,"r":2},{"f":1,"t":2.273,"l":3,"r":4},{"f":1,"t":0.8276,"l":5,"r":6},{"v":-0.19230738},{"f":0,"t":8.255,"l":7,"r":8},{"f":0,"t":7.3505,"l":9,"r":10},{"f":2,"t":-0.1594,"l":11,"r":12},{"v":0.030709062},{"v":-0.024604393},{"v":0.4598012},{"v":0.05360159},{"v":-0.22201577},{"v":0.022953574}],[{"f":1,"t":1.9722,"l":1,"r":2},{"f":3,"t":0.1631,"l":3,"r":4},{"f":0,"t":7.8272,"l":5,"r":6},{"v":-0.19050752},{"f":2,"t":1.093,"l":7,"r":8},{"f":2,"t":3.3646,"l":9,"r":10},{"f":1,"t":7.2036,"l":11,"r":12},{"v":0.019334609},{"v":-0.13434352},{"v":-0.047821786},{"v":0.12570809},{"v":-0.005519365},{"v":0.14713363}],[{"f":3,"t":0.1631,"l":1,"r":2},{"f":2,"t":1.7342,"l":3,"r":4},{"f":1,"t":0.8662,"l":5,"r":6},{"v":-0.19132096},{"f":3,"t":0.0107,"l":7,"r":8},{"f":0,"t":7.3505,"l":9,"r":10},{"f":1,"t":4.1663,"l":11,"r":12},{"v":0.07592461},{"v":-0.033958893},{"v":0.32177827},{"v":0.059696227},{"v":-0.018269682},{"v":0.045264903}],[{"f":0,"t":8.0186,"l":1,"r":2},{"f":1,"t":2.8126,"l":3,"r":4},{"f":2,"t":-0.8752,"l":5,"r":6},{"f":3,"t":0.2861,"l":7,"r":8},{"f":3,"t":0.0141,"l":9,"r":10},{"v":0.3040929},{"f":2,"t":-0.2213,"l":11,"r":12},{"v":-0.1535997},{"v":-0.04336403},{"v":-0.071213566},{"v":0.06670244},{"v":-0.13132334},{"v":0.012905212}],[{"f":2,"t":0.8818,"l":1,"r":2},{"f":3,"t":0.1631,"l":3,"r":4},{"f":0,"t":7.8272,"l":5,"r":6},{"v":-0.17907225},{"f":0,"t":7.6573,"l":7,"r":8},{"f":0,"t":7.7367,"l":9,"r":10},{"f":0,"t":8.0186,"l":11,"r":12},{"v":0.1858938},{"v":0.052357685},{"v":0.002662367},{"v":0.19082282},{"v":-0.08525797},{"v":-0.005920035}],[{"f":1,"t":12.91,"l":1,"r":2},{"f":0,"t":7.0405,"l":3,"r":4},{"v":0.14849178},{"f":3,"t":0.0107,"l":5,"r":6},{"f":0,"t":8.255,"l":7,"r":8},{"v":-0.013937294},{"v":-0.18676464},{"v":0.017997805},{"v":-0.009074471}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":1,"t":0.6302,"l":3,"r":4},{"v":0.16742139},{"f":3,"t":0.8543,"l":5,"r":6},{"f":2,"t":0.8818,"l":7,"r":8},{"v":-0.20314036},{"v":0.11154797},{"v":0.053077992},{"v":0.0073656514}],[{"f":2,"t":-0.483,"l":1,"r":2},{"f":0,"t":8.3882,"l":3,"r":4},{"f":2,"t":-0.3508,"l":5,"r":6},{"f":0,"t":7.1213,"l":7,"r":8},{"v":0.27514613},{"v":-0.19187443},{"f":1,"t":0.8276,"l":9,"r":10},{"v":0.14477402},{"v":-0.19737767},{"v":0.21601334},{"v":0.008417607}],[{"f":1,"t":1.6242,"l":1,"r":2},{"f":0,"t":8.5289,"l":3,"r":4},{"f":2,"t":0.8818,"l":5,"r":6},{"f":3,"t":0.8543,"l":7,"r":8},{"f":2,"t":-0.0268,"l":9,"r":10},{"v":0.23241308},{"f":3,"t":0.0292,"l":11,"r":12},{"v":-0.099454254},{"v":0.08550795},{"v":0.189646},{"v":-0.027199313},{"v":0.043771252},{"v":-0.005546843}],[{"f":4,"t":1,"l":1,"r":2},{"f":3,"t":0.0292,"l":3,"r":4},{"f":0,"t":9.3927,"l":5,"r":6},{"f":3,"t":0.0141,"l":7,"r":8},{"f":3,"t":0.0363,"l":9,"r":10},{"f":3,"t":0.0292,"l":11,"r":12},{"f":2,"t":0.5805,"l":13,"r":14},{"v":-0.04666962},{"v":0.08634075},{"v":-0.15840174},{"v":-0.011291261},{"v":-0.09256032},{"v":0.07625456},{"v":0.24378768},{"v":-0.06778234}],[{"f":1,"t":1.1615,"l":1,"r":2},{"f":0,"t":7.7367,"l":3,"r":4},{"f":2,"t":0.3596,"l":5,"r":6},{"f":3,"t":0.4448,"l":7,"r":8},{"f":1,"t":0.7888,"l":9,"r":10},{"f":0,"t":8.1242,"l":11,"r":12},{"f":1,"t":1.341,"l":13,"r":14},{"v":-0.09357386},{"v":0.21284477},{"v":7.444025e-05},{"v":-0.22483401},{"v":-0.15883014},{"v":0.20143047},{"v":-0.10000535},{"v":0.0047913785}],[{"f":1,"t":7.2036,"l":1,"r":2},{"f":2,"t":0.7148,"l":3,"r":4},{"v":0.1628298},{"f":3,"t":0.1631,"l":5,"r":6},{"f":0,"t":9.3927,"l":7,"r":8},{"v":-0.16935492},{"v":0.05530396},{"v":-0.0042299703},{"v":-0.05502252}],[{"f":4,"t":1,"l":1,"r":2},{"f":2,"t":-0.3508,"l":3,"r":4},{"f":0,"t":8.5289,"l":5,"r":6},{"f":3,"t":0.8543,"l":7,"r":8},{"f":1,"t":0.8662,"l":9,"r":10},{"f":2,"t":5.5444,"l":11,"r":12},{"f":3,"t":0.0292,"l":13,"r":14},{"v":-0.2149583},{"v":0.09115149},{"v":0.18725401},{"v":-0.0020546212},{"v":0.23286974},{"v":-0.06980098},{"v":-0.24275926},{"v":0.024295127}],[{"f":3,"t":0.0593,"l":1,"r":2},{"f":2,"t":5.5444,"l":3,"r":4},{"f":0,"t":9.0038,"l":5,"r":6},{"f":0,"t":9.0038,"l":7,"r":8},{"f":0,"t":9.3927,"l":9,"r":10},{"f":3,"t":0.0777,"l":11,"r":12},{"f":0,"t":9.3927,"l":13,"r":14},{"v":-0.041300546},{"v":-0.31670672},{"v":0.007160488},{"v":0.20606342},{"v":0.0653605},{"v":-0.006770525},{"v":0.07155215},{"v":0.006540125}],[{"f":2,"t":1.7342,"l":1,"r":2},{"f":3,"t":0.1631,"l":3,"r":4},{"f":1,"t":2.273,"l":5,"r":6},{"v":-0.18370864},{"f":2,"t":1.3728,"l":7,"r":8},{"f":3,"t":0.4448,"l":9,"r":10},{"f":3,"t":0.0409,"l":11,"r":12},{"v":0.029144669},{"v":0.14008337},{"v":-0.2339863},{"v":-0.039635774},{"v":0.03647542},{"v":-0.0045543117}],[{"f":1,"t":1.1143,"l":1,"r":2},{"f":0,"t":7.5071,"l":3,"r":4},{"f":1,"t":1.1615,"l":5,"r":6},{"f":0,"t":7.2793,"l":7,"r":8},{"f":0,"t":8.3882,"l":9,"r":10},{"f":2,"t":0.3596,"l":11,"r":12},{"f":1,"t":1.2754,"l":13,"r":14},{"v":-0.15393655},{"v":0.27881762},{"v":-0.2505284},{"v":-0.005895735},{"v":-0.01980461},{"v":0.4363884},{"v":-0.10961684},{"v":-0.002818344}],[{"f":0,"t":9.9017,"l":1,"r":2},{"f":0,"t":7.9175,"l":3,"r":4},{"f":3,"t":0.8543,"l":5,"r":6},{"f":2,"t":-0.2842,"l":7,"r":8},{"f":2,"t":-0.5576,"l":9,"r":10},{"f":2,"t":5.5444,"l":11,"r":12},{"f":4,"t":1,"l":13,"r":14},{"v":-0.18977836},{"v":0.03623711},{"v":0.15490206},{"v":-0.015724434},{"v":-0.06779139},{"v":0.097634956},{"v":0.18489186},{"v":0.063275605}],[{"f":2,"t":1.3728,"l":1,"r":2},{"f":3,"t":0.2101,"l":3,"r":4},{"f":2,"t":2.3232,"l":5,"r":6},{"v":-0.18136321},{"f":0,"t":7.6573,"l":7,"r":8},{"f":3,"t":0.0409,"l":9,"r":10},{"f":0,"t":8.255,"l":11,"r":12},{"v":0.074074894},{"v":-0.056539793},{"v":0.23623292},{"v":0.02933377},{"v":0.025876163},{"v":-0.005864411}],[{"f":0,"t":8.0186,"l":1,"r":2},{"f":1,"t":2.8126,"l":3,"r":4},{"f":2,"t":0.3596,"l":5,"r":6},{"f":2,"t":1.093,"l":7,"r":8},{"f":1,"t":4.1663,"l":9,"r":10},{"f":1,"t":1.0678,"l":11,"r":12},{"f":1,"t":1.2754,"l":13,"r":14},{"v":-0.057252742},{"v":-0.19356866},{"v":0.020276897},{"v":-0.1205562},{"v":0.01320901},{"v":0.16204163},{"v":-0.24227445},{"v":0.011164329}],[{"f":3,"t":0.0141,"l":1,"r":2},{"f":2,"t":3.3646,"l":3,"r":4},{"f":0,"t":7.9175,"l":5,"r":6},{"v":-0.23537946},{"f":3,"t":0.0064,"l":7,"r":8},{"f":2,"t":2.3232,"l":9,"r":10},{"f":0,"t":8.1242,"l":11,"r":12},{"v":0.15957692},{"v":-0.07642082},{"v":0.09881502},{"v":-0.0004180492},{"v":-0.065010846},{"v":0.008833249}],[{"f":0,"t":7.0405,"l":1,"r":2},{"v":-0.19170175},{"f":1,"t":0.7102,"l":3,"r":4},{"f":3,"t":0.4448,"l":5,"r":6},{"f":2,"t":-0.1594,"l":7,"r":8},{"v":-0.045666672},{"v":0.21388102},{"v":-0.14020923},{"v":0.0012386885}],[{"f":0,"t":7.6573,"l":1,"r":2},{"f":2,"t":0.1151,"l":3,"r":4},{"f":0,"t":7.7367,"l":5,"r":6},{"f":2,"t":-0.2842,"l":7,"r":8},{"f":1,"t":2.8126,"l":9,"r":10},{"f":3,"t":0.091,"l":11,"r":12},{"f":3,"t":0.0463,"l":13,"r":14},{"v":0.027009973},{"v":0.24415873},{"v":-0.06715591},{"v":0.05870672},{"v":-0.35140675},{"v":-0.034943946},{"v":0.03834754},{"v":-0.015774086}],[{"f":3,"t":0.0141,"l":1,"r":2},{"f":2,"t":3.3646,"l":3,"r":4},{"f":3,"t":0.0409,"l":5,"r":6},{"v":-0.22389935},{"f":0,"t":6.8669,"l":7,"r":8},{"f":1,"t":2.273,"l":9,"r":10},{"f":3,"t":0.0593,"l":11,"r":12},{"v":0.16572396},{"v":-0.017732855},{"v":-0.14712057},{"v":0.06697137},{"v":-0.046147507},{"v":0.013345051}],[{"f":0,"t":8.255,"l":1,"r":2},{"f":3,"t":0.4448,"l":3,"r":4},{"f":3,"t":0.016,"l":5,"r":6},{"f":0,"t":7.7367,"l":7,"r":8},{"f":0,"t":7.6573,"l":9,"r":10},{"f":0,"t":8.7461,"l":11,"r":12},{"f":1,"t":1.1615,"l":13,"r":14},{"v":-0.027269498},{"v":0.06119613},{"v":0.17710759},{"v":-0.19230853},{"v":0.06927144},{"v":0.19549294},{"v":0.060579386},{"v":-0.02612619}]]},"behavior":{"base_score":0.5,"features":["is_new_recipient","prior_count","tx_count_30m","value_24h_ratio","indirect_connection","is_p2m"],"trees":[[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":3,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":3,"t":6.8054,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":2,"t":3,"l":13,"r":14},{"v":-0.39531142},{"v":-0.0125558395},{"v":-0.09099945},{"v":0.09372967},{"v":0.31496865},{"v":0.37995437},{"v":0.24359691},{"v":0.37827882}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":3,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":3,"t":6.8054,"l":7,"r":8},{"f":3,"t":3.7655,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":2,"t":2,"l":13,"r":14},{"v":-0.32842812},{"v":-0.007191167},{"v":0.017859986},{"v":0.19496492},{"v":0.256464},{"v":0.31429395},{"v":0.19370969},{"v":0.30168906}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":3,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":3,"t":6.8054,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":2,"t":2,"l":13,"r":14},{"v":-0.2925307},{"v":0.00436022},{"v":-0.08396125},{"v":0.055656947},{"v":0.21579026},{"v":0.28096554},{"v":0.16122566},{"v":0.2664149}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":3,"l":3,"r":4},{"f":2,"t":3,"l":5,"r":6},{"f":3,"t":6.8054,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"v":0.26674554},{"v":-0.2664968},{"v":0.0023325495},{"v":-0.075041525},{"v":0.041225854},{"v":0.15621983},{"v":0.25184083}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":3,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":0.2244,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":3,"t":3.7655,"l":13,"r":14},{"v":-0.25314808},{"v":-0.032010343},{"v":-0.021177761},{"v":0.049346164},{"v":0.16300814},{"v":0.23420694},{"v":0.110039294},{"v":0.2219795}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":2,"l":3,"r":4},{"f":2,"t":3,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":2,"t":4,"l":13,"r":14},{"v":-0.24283493},{"v":-0.012577671},{"v":-0.07608455},{"v":0.03911213},{"v":0.11079573},{"v":0.21390407},{"v":0.19062139},{"v":0.2412957}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":2,"l":3,"r":4},{"f":2,"t":3,"l":5,"r":6},{"f":3,"t":6.8054,"l":7,"r":8},{"f":3,"t":6.8054,"l":9,"r":10},{"f":3,"t":3.7655,"l":11,"r":12},{"v":0.22237186},{"v":-0.22880752},{"v":0.009535432},{"v":0.00076587434},{"v":0.13855337},{"v":0.09497631},{"v":0.19951345}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":3,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":3,"t":6.8054,"l":7,"r":8},{"f":2,"t":5,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":3,"t":6.8054,"l":13,"r":14},{"v":-0.21726535},{"v":0.0153006455},{"v":-0.01933269},{"v":0.045716602},{"v":0.11772072},{"v":0.19235452},{"v":0.06497135},{"v":0.19005471}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":2,"l":3,"r":4},{"f":2,"t":2,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":0.7524,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":2,"t":4,"l":13,"r":14},{"v":-0.22129126},{"v":-0.01556317},{"v":-0.013031227},{"v":0.07376242},{"v":0.06536396},{"v":0.17035134},{"v":0.14195241},{"v":0.2166817}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":2,"l":3,"r":4},{"f":2,"t":3,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":0.7524,"l":9,"r":10},{"f":3,"t":6.8054,"l":11,"r":12},{"f":2,"t":4,"l":13,"r":14},{"v":-0.2169373},{"v":0.0029671188},{"v":-0.019297104},{"v":0.04443671},{"v":0.05503283},{"v":0.17701013},{"v":0.14238676},{"v":0.20569782}],[{"f":0,"t":1,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":2,"t":3,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"v":0.18880321},{"v":-0.21348794},{"v":-0.005457707},{"v":-0.012807058},{"v":0.091295764},{"v":0.043991186},{"v":0.16369645}],[{"f":0,"t":1,"l":1,"r":2},{"f":3,"t":13.1346,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":2,"t":3,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":2,"t":2,"l":13,"r":14},{"v":-0.17077528},{"v":0.0023009405},{"v":0.044332996},{"v":0.16264963},{"v":0.075181246},{"v":0.16082345},{"v":0.018242538},{"v":0.13896543}],[{"f":0,"t":1,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":4,"t":1,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":3,"t":13.1346,"l":9,"r":10},{"f":2,"t":4,"l":11,"r":12},{"f":3,"t":0.8543,"l":13,"r":14},{"v":-0.20886639},{"v":-0.002164197},{"v":-0.037821922},{"v":0.06575658},{"v":0.0342805},{"v":0.17741357},{"v":0.13365693},{"v":0.19228308}],[{"f":0,"t":1,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":3,"t":3.7655,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":3,"t":13.1346,"l":9,"r":10},{"f":2,"t":3,"l":11,"r":12},{"f":3,"t":6.8054,"l":13,"r":14},{"v":-0.20694514},{"v":-0.014338632},{"v":-0.00942549},{"v":0.04133182},{"v":0.017176},{"v":0.16401194},{"v":0.085324965},{"v":0.14852138}],[{"f":1,"t":2,"l":1,"r":2},{"f":5,"t":1,"l":3,"r":4},{"f":2,"t":4,"l":5,"r":6},{"f":4,"t":1,"l":7,"r":8},{"f":3,"t":3.7655,"l":9,"r":10},{"f":3,"t":3.7655,"l":11,"r":12},{"f":3,"t":0.0122,"l":13,"r":14},{"v":0.05174408},{"v":0.13969742},{"v":-0.0043680053},{"v":0.07747353},{"v":-0.19089904},{"v":-0.00031656722},{"v":-0.09926779},{"v":0.030254275}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":2,"l":3,"r":4},{"f":3,"t":6.8054,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":0.2244,"l":9,"r":10},{"f":2,"t":4,"l":11,"r":12},{"f":5,"t":1,"l":13,"r":14},{"v":-0.20432074},{"v":-0.0030600454},{"v":-0.030126369},{"v":0.032151967},{"v":0.011787805},{"v":0.16747597},{"v":0.1776415},{"v":0.104873076}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":3,"t":6.8054,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":2,"t":7,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":5,"t":1,"l":13,"r":14},{"v":-0.20290175},{"v":-0.019545779},{"v":-0.014516706},{"v":0.038333055},{"v":0.008185229},{"v":0.11720355},{"v":0.17147759},{"v":0.100374304}],[{"f":1,"t":2,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":3,"t":6.8054,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":3,"t":13.1346,"l":9,"r":10},{"f":2,"t":2,"l":11,"r":12},{"f":2,"t":8,"l":13,"r":14},{"v":0.0016122701},{"v":0.09720285},{"v":0.056728292},{"v":0.12235111},{"v":-0.17204194},{"v":-0.008541741},{"v":0.011269734},{"v":0.19535881}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":2,"t":3,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":6.8054,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":5,"t":1,"l":13,"r":14},{"v":-0.2011179},{"v":-0.022486866},{"v":-0.011560856},{"v":0.057990164},{"v":0.0062516644},{"v":0.090799436},{"v":0.1714068},{"v":0.09473878}],[{"f":1,"t":2,"l":1,"r":2},{"f":5,"t":1,"l":3,"r":4},{"f":2,"t":4,"l":5,"r":6},{"f":3,"t":13.1346,"l":7,"r":8},{"f":3,"t":1.4591,"l":9,"r":10},{"f":3,"t":3.7655,"l":11,"r":12},{"f":1,"t":21,"l":13,"r":14},{"v":0.024998588},{"v":0.13339321},{"v":-0.016734282},{"v":0.015395412},{"v":-0.14641775},{"v":-0.011178127},{"v":0.0026429074},{"v":0.10002189}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":2,"l":3,"r":4},{"f":2,"t":4,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":0.0042,"l":9,"r":10},{"f":4,"t":1,"l":11,"r":12},{"f":3,"t":0.0235,"l":13,"r":14},{"v":-0.20028703},{"v":0.0016724485},{"v":-0.113151215},{"v":0.010058347},{"v":0.007751377},{"v":0.0942991},{"v":0.024375256},{"v":0.1624258}],[{"f":3,"t":13.1346,"l":1,"r":2},{"f":0,"t":1,"l":3,"r":4},{"f":0,"t":1,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":1,"t":26,"l":11,"r":12},{"v":0.1512599},{"v":-0.09586972},{"v":0.0073601133},{"v":0.0009256825},{"v":0.14754389},{"v":0.03075677},{"v":-0.26095465}],[{"f":3,"t":3.7655,"l":1,"r":2},{"f":0,"t":1,"l":3,"r":4},{"f":1,"t":2,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":3,"t":0.0235,"l":9,"r":10},{"f":5,"t":1,"l":11,"r":12},{"f":1,"t":21,"l":13,"r":14},{"v":-0.19888163},{"v":-0.0020264953},{"v":-0.045226227},{"v":0.007428004},{"v":0.09606718},{"v":0.03649392},{"v":0.0075683184},{"v":0.07184445}],[{"f":1,"t":2,"l":1,"r":2},{"f":5,"t":1,"l":3,"r":4},{"f":3,"t":0.2244,"l":5,"r":6},{"f":2,"t":3,"l":7,"r":8},{"f":3,"t":0.355,"l":9,"r":10},{"f":2,"t":2,"l":11,"r":12},{"f":2,"t":5,"l":13,"r":14},{"v":0.018279733},{"v":0.09352445},{"v":-0.027195597},{"v":0.006662217},{"v":-0.19001445},{"v":-0.06275063},{"v":-0.03109861},{"v":0.029781131}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":3,"t":0.1004,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":0.0122,"l":9,"r":10},{"f":3,"t":0.0235,"l":11,"r":12},{"f":3,"t":0.355,"l":13,"r":14},{"v":-0.19664252},{"v":-0.020157926},{"v":-0.079348296},{"v":0.0059508313},{"v":-0.004854499},{"v":0.0560454},{"v":-0.02953305},{"v":0.01007516}],[{"f":4,"t":1,"l":1,"r":2},{"f":3,"t":0.1551,"l":3,"r":4},{"f":3,"t":0.8543,"l":5,"r":6},{"f":0,"t":1,"l":7,"r":8},{"f":3,"t":0.2244,"l":9,"r":10},{"f":3,"t":0.4654,"l":11,"r":12},{"v":0.13598923},{"v":-0.018109653},{"v":0.01980596},{"v":-0.076740615},{"v":-0.0011136715},{"v":0.08536014},{"v":-0.12160108}],[{"f":4,"t":1,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":3,"t":0.0383,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":1,"t":8,"l":9,"r":10},{"v":-0.015011515},{"f":3,"t":0.8543,"l":11,"r":12},{"v":-0.0135712},{"v":0.018002884},{"v":0.009848278},{"v":0.043863233},{"v":0.0754162},{"v":0.13894208}],[{"f":3,"t":6.8054,"l":1,"r":2},{"f":3,"t":0.1004,"l":3,"r":4},{"f":1,"t":13,"l":5,"r":6},{"f":3,"t":0.0235,"l":7,"r":8},{"f":1,"t":5,"l":9,"r":10},{"f":1,"t":10,"l":11,"r":12},{"f":1,"t":18,"l":13,"r":14},{"v":-0.016976414},{"v":0.044876486},{"v":-0.0020208186},{"v":-0.052398074},{"v":0.02228753},{"v":-0.06529941},{"v":0.09757259},{"v":0.018606408}],[{"f":5,"t":1,"l":1,"r":2},{"f":2,"t":7,"l":3,"r":4},{"f":3,"t":0.0042,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":1,"t":11,"l":9,"r":10},{"f":0,"t":1,"l":11,"r":12},{"f":3,"t":0.0235,"l":13,"r":14},{"v":0.006363075},{"v":0.034755714},{"v":0.023762753},{"v":0.130468},{"v":-0.033856776},{"v":0.05453662},{"v":-0.06177053},{"v":-0.008679978}],[{"f":1,"t":7,"l":1,"r":2},{"f":2,"t":7,"l":3,"r":4},{"f":1,"t":8,"l":5,"r":6},{"f":0,"t":1,"l":7,"r":8},{"f":1,"t":5,"l":9,"r":10},{"f":3,"t":0.5891,"l":11,"r":12},{"f":2,"t":4,"l":13,"r":14},{"v":-0.019907098},{"v":0.0039932737},{"v":0.032866713},{"v":0.14090127},{"v":-0.042619683},{"v":-0.15911357},{"v":-0.049106475},{"v":0.020530852}],[{"f":1,"t":6,"l":1,"r":2},{"f":3,"t":13.1346,"l":3,"r":4},{"f":3,"t":6.8054,"l":5,"r":6},{"f":3,"t":0.1004,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":2,"t":1,"l":11,"r":12},{"f":1,"t":8,"l":13,"r":14},{"v":0.016889649},{"v":-0.005322688},{"v":0.028154466},{"v":0.113309346},{"v":-0.17244254},{"v":-0.032890033},{"v":-0.11631941},{"v":0.040126234}],[{"f":2,"t":5,"l":1,"r":2},{"f":1,"t":2,"l":3,"r":4},{"f":3,"t":0.5891,"l":5,"r":6},{"f":5,"t":1,"l":7,"r":8},{"f":3,"t":3.7655,"l":9,"r":10},{"f":2,"t":6,"l":11,"r":12},{"f":3,"t":0.6658,"l":13,"r":14},{"v":0.013369115},{"v":-0.0075351535},{"v":-0.07437072},{"v":-0.010841518},{"v":0.1245013},{"v":0.03230837},{"v":-0.19587903},{"v":-0.008446861}],[{"f":0,"t":1,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":2,"t":4,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":3,"t":6.8054,"l":9,"r":10},{"f":3,"t":6.8054,"l":11,"r":12},{"f":3,"t":0.0235,"l":13,"r":14},{"v":-0.19574647},{"v":0.00045055104},{"v":0.076350436},{"v":-0.008150298},{"v":0.0046892115},{"v":0.052738316},{"v":-0.047854695},{"v":0.1362565}],[{"f":2,"t":8,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":1,"t":14,"l":5,"r":6},{"f":1,"t":7,"l":7,"r":8},{"f":1,"t":5,"l":9,"r":10},{"f":3,"t":0.2244,"l":11,"r":12},{"f":3,"t":0.076,"l":13,"r":14},{"v":-0.004089221},{"v":-0.03556135},{"v":0.025251647},{"v":-0.002662663},{"v":-0.16568248},{"v":0.063797124},{"v":0.25403783},{"v":-0.015818356}],[{"f":3,"t":0.1004,"l":1,"r":2},{"f":1,"t":2,"l":3,"r":4},{"f":3,"t":3.7655,"l":5,"r":6},{"f":2,"t":3,"l":7,"r":8},{"f":1,"t":5,"l":9,"r":10},{"f":3,"t":1.4591,"l":11,"r":12},{"f":1,"t":8,"l":13,"r":14},{"v":0.018773293},{"v":0.14822946},{"v":-0.09936613},{"v":0.032524306},{"v":-0.0025998715},{"v":-0.038354404},{"v":0.0032224886},{"v":0.041579172}],[{"f":1,"t":9,"l":1,"r":2},{"f":1,"t":8,"l":3,"r":4},{"f":1,"t":13,"l":5,"r":6},{"f":1,"t":7,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":3,"t":0.4096,"l":11,"r":12},{"f":3,"t":1.4591,"l":13,"r":14},{"v":0.0032856923},{"v":-0.09064342},{"v":0.01784765},{"v":0.15766892},{"v":-0.19360432},{"v":-0.030242363},{"v":0.034518614},{"v":-0.029594973}],[{"f":4,"t":1,"l":1,"r":2},{"f":3,"t":0.1004,"l":3,"r":4},{"f":3,"t":0.0383,"l":5,"r":6},{"f":1,"t":21,"l":7,"r":8},{"f":3,"t":13.1346,"l":9,"r":10},{"f":3,"t":0.0042,"l":11,"r":12},{"f":3,"t":0.4654,"l":13,"r":14},{"v":0.018194765},{"v":-0.13842575},{"v":-0.006050722},{"v":0.021840816},{"v":0.105075456},{"v":-0.1291958},{"v":0.1377124},{"v":0.015954383}],[{"f":3,"t":0.0235,"l":1,"r":2},{"f":1,"t":12,"l":3,"r":4},{"f":4,"t":1,"l":5,"r":6},{"f":1,"t":9,"l":7,"r":8},{"f":2,"t":8,"l":9,"r":10},{"f":2,"t":2,"l":11,"r":12},{"f":3,"t":0.056,"l":13,"r":14},{"v":-0.036596052},{"v":-0.23944806},{"v":-0.006931722},{"v":0.13516025},{"v":-0.0042182184},{"v":0.022236293},{"v":-0.07742313},{"v":0.08689694}],[{"f":3,"t":0.0235,"l":1,"r":2},{"f":2,"t":3,"l":3,"r":4},{"f":3,"t":0.056,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":2,"t":7,"l":9,"r":10},{"f":1,"t":11,"l":11,"r":12},{"f":3,"t":0.2244,"l":13,"r":14},{"v":-0.046143282},{"v":-0.2314635},{"v":0.08525526},{"v":-0.07731592},{"v":0.02616382},{"v":0.14230923},{"v":-0.024517268},{"v":0.0061349487}],[{"f":2,"t":2,"l":1,"r":2},{"f":3,"t":3.7655,"l":3,"r":4},{"f":1,"t":7,"l":5,"r":6},{"f":0,"t":1,"l":7,"r":8},{"f":3,"t":6.8054,"l":9,"r":10},{"f":1,"t":6,"l":11,"r":12},{"f":1,"t":12,"l":13,"r":14},{"v":-0.19411579},{"v":-0.0029771745},{"v":0.056453206},{"v":0.00021868991},{"v":0.01874113},{"v":0.0926284},{"v":-0.044061568},{"v":0.026546208}],[{"f":3,"t":1.2608,"l":1,"r":2},{"f":3,"t":0.4654,"l":3,"r":4},{"f":3,"t":1.4591,"l":5,"r":6},{"f":3,"t":0.355,"l":7,"r":8},{"f":1,"t":21,"l":9,"r":10},{"f":5,"t":1,"l":11,"r":12},{"f":2,"t":7,"l":13,"r":14},{"v":-0.00225874},{"v":0.04043804},{"v":-0.021914043},{"v":-0.16729547},{"v":0.12480414},{"v":-0.020045305},{"v":0.009259068},{"v":-0.047286633}],[{"f":3,"t":3.7655,"l":1,"r":2},{"f":0,"t":1,"l":3,"r":4},{"f":2,"t":8,"l":5,"r":6},{"f":2,"t":2,"l":7,"r":8},{"f":2,"t":3,"l":9,"r":10},{"f":2,"t":7,"l":11,"r":12},{"f":3,"t":6.8054,"l":13,"r":14},{"v":-0.19252802},{"v":-0.0070234477},{"v":0.0048449337},{"v":0.107212104},{"v":0.018744973},{"v":-0.13017456},{"v":-0.032377955},{"v":0.17537497}],[{"f":1,"t":6,"l":1,"r":2},{"f":0,"t":1,"l":3,"r":4},{"f":3,"t":0.2244,"l":5,"r":6},{"f":2,"t":1,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":5,"t":1,"l":11,"r":12},{"f":3,"t":0.3087,"l":13,"r":14},{"v":-0.04572231},{"v":-0.0062712445},{"v":0.0023525746},{"v":0.14284119},{"v":-0.06640641},{"v":0.06399485},{"v":0.14468712},{"v":0.024103872}],[{"f":5,"t":1,"l":1,"r":2},{"f":3,"t":0.4654,"l":3,"r":4},{"f":3,"t":13.1346,"l":5,"r":6},{"f":2,"t":7,"l":7,"r":8},{"f":3,"t":0.7524,"l":9,"r":10},{"f":3,"t":0.2244,"l":11,"r":12},{"f":1,"t":2,"l":13,"r":14},{"v":0.023734573},{"v":0.09739452},{"v":-0.044290032},{"v":0.0072369776},{"v":-0.014685121},{"v":0.0067769177},{"v":0.032886066},{"v":-0.108430184}],[{"f":1,"t":18,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":2,"t":3,"l":5,"r":6},{"f":1,"t":4,"l":7,"r":8},{"f":1,"t":4,"l":9,"r":10},{"f":3,"t":13.1346,"l":11,"r":12},{"f":3,"t":1.0901,"l":13,"r":14},{"v":0.013130893},{"v":-0.026145106},{"v":-0.025010109},{"v":0.025602028},{"v":-0.05646016},{"v":-0.186701},{"v":0.044449534},{"v":-0.07935776}],[{"f":1,"t":2,"l":1,"r":2},{"f":3,"t":0.0383,"l":3,"r":4},{"f":1,"t":3,"l":5,"r":6},{"f":5,"t":1,"l":7,"r":8},{"f":3,"t":0.1004,"l":9,"r":10},{"f":3,"t":0.0235,"l":11,"r":12},{"f":3,"t":0.2244,"l":13,"r":14},{"v":0.016044263},{"v":-0.037299793},{"v":0.039930932},{"v":0.004509607},{"v":-0.2632185},{"v":-0.047862764},{"v":-0.040597256},{"v":0.0037985642}],[{"f":4,"t":1,"l":1,"r":2},{"f":3,"t":0.0042,"l":3,"r":4},{"f":3,"t":0.8543,"l":5,"r":6},{"f":1,"t":4,"l":7,"r":8},{"f":3,"t":0.0122,"l":9,"r":10},{"f":3,"t":0.4654,"l":11,"r":12},{"f":3,"t":3.7655,"l":13,"r":14},{"v":-0.012583149},{"v":-0.16928534},{"v":0.027587244},{"v":-0.0019799971},{"v":0.04366268},{"v":-0.060598876},{"v":0.11942893},{"v":0.03327299}],[{"f":3,"t":0.0042,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":1,"t":26,"l":5,"r":6},{"f":5,"t":1,"l":7,"r":8},{"f":1,"t":4,"l":9,"r":10},{"f":3,"t":13.1346,"l":11,"r":12},{"f":5,"t":1,"l":13,"r":14},{"v":-0.021583578},{"v":0.048383657},{"v":0.12732129},{"v":0.0027470388},{"v":-0.003742511},{"v":0.015012204},{"v":0.09275628},{"v":-0.04400846}],[{"f":3,"t":13.1346,"l":1,"r":2},{"f":3,"t":1.4591,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":1,"t":21,"l":7,"r":8},{"f":1,"t":21,"l":9,"r":10},{"f":1,"t":18,"l":11,"r":12},{"f":1,"t":21,"l":13,"r":14},{"v":0.0035459455},{"v":-0.09492247},{"v":-0.020797983},{"v":0.06123057},{"v":0.059940644},{"v":-0.022406334},{"v":-0.0027256643},{"v":0.12904106}],[{"f":4,"t":1,"l":1,"r":2},{"f":3,"t":0.2244,"l":3,"r":4},{"f":3,"t":0.4654,"l":5,"r":6},{"f":3,"t":0.1004,"l":7,"r":8},{"f":2,"t":8,"l":9,"r":10},{"f":3,"t":0.1551,"l":11,"r":12},{"f":3,"t":0.6658,"l":13,"r":14},{"v":0.0034580322},{"v":-0.03859054},{"v":0.0027420155},{"v":0.05897246},{"v":0.06199813},{"v":0.13834755},{"v":-0.1145569},{"v":0.06447812}],[{"f":1,"t":26,"l":1,"r":2},{"f":3,"t":0.1004,"l":3,"r":4},{"f":3,"t":13.1346,"l":5,"r":6},{"f":1,"t":11,"l":7,"r":8},{"f":3,"t":0.2244,"l":9,"r":10},{"f":3,"t":0.5891,"l":11,"r":12},{"v":-0.2186244},{"v":0.009972955},{"v":0.109918974},{"v":-0.035530202},{"v":0.0013192901},{"v":-0.014322514},{"v":0.16367711}],[{"f":2,"t":2,"l":1,"r":2},{"f":0,"t":1,"l":3,"r":4},{"f":3,"t":1.7167,"l":5,"r":6},{"f":3,"t":3.7655,"l":7,"r":8},{"f":3,"t":6.8054,"l":9,"r":10},{"f":2,"t":4,"l":11,"r":12},{"f":1,"t":10,"l":13,"r":14},{"v":-0.19040334},{"v":0.0048269094},{"v":0.0024903219},{"v":0.034663823},{"v":0.06705416},{"v":0.012721673},{"v":0.009989171},{"v":-0.11857952}],[{"f":2,"t":7,"l":1,"r":2},{"f":1,"t":10,"l":3,"r":4},{"f":1,"t":6,"l":5,"r":6},{"f":1,"t":8,"l":7,"r":8},{"f":3,"t":0.7524,"l":9,"r":10},{"f":3,"t":0.5891,"l":11,"r":12},{"f":1,"t":10,"l":13,"r":14},{"v":-0.002019607},{"v":0.060282946},{"v":-0.08217473},{"v":-0.001074829},{"v":0.09330034},{"v":0.024192002},{"v":-0.10745499},{"v":0.038373828}],[{"f":3,"t":0.0383,"l":1,"r":2},{"f":1,"t":5,"l":3,"r":4},{"f":1,"t":3,"l":5,"r":6},{"f":1,"t":4,"l":7,"r":8},{"f":1,"t":7,"l":9,"r":10},{"f":3,"t":0.2652,"l":11,"r":12},{"f":3,"t":0.2244,"l":13,"r":14},{"v":-0.031826064},{"v":-0.21782552},{"v":0.20926444},{"v":-8.249218e-05},{"v":0.017438663},{"v":-0.006155724},{"v":-0.09180435},{"v":-0.0077962107}],[{"f":1,"t":5,"l":1,"r":2},{"f":3,"t":1.2608,"l":3,"r":4},{"f":3,"t":0.6658,"l":5,"r":6},{"f":0,"t":1,"l":7,"r":8},{"f":5,"t":1,"l":9,"r":10},{"f":2,"t":4,"l":11,"r":12},{"f":3,"t":0.7524,"l":13,"r":14},{"v":-0.049693853},{"v":-0.002334874},{"v":0.03091374},{"v":-0.0008225564},{"v":-0.12541787},{"v":0.060621258},{"v":-0.21256092},{"v":-0.028227134}],[{"f":1,"t":3,"l":1,"r":2},{"f":3,"t":0.1551,"l":3,"r":4},{"f":5,"t":1,"l":5,"r":6},{"f":3,"t":0.1274,"l":7,"r":8},{"f":3,"t":0.355,"l":9,"r":10},{"f":1,"t":5,"l":11,"r":12},{"f":3,"t":6.8054,"l":13,"r":14},{"v":0.0053973855},{"v":0.04739864},{"v":-0.023280194},{"v":0.00043612786},{"v":0.048387356},{"v":-0.0025687641},{"v":-0.006064057},{"v":0.088200934}],[{"f":1,"t":14,"l":1,"r":2},{"f":0,"t":1,"l":3,"r":4},{"f":3,"t":6.8054,"l":5,"r":6},{"f":2,"t":8,"l":7,"r":8},{"f":2,"t":4,"l":9,"r":10},{"f":3,"t":2.6484,"l":11,"r":12},{"f":1,"t":16,"l":13,"r":14},{"v":-0.017575955},{"v":-0.08027482},{"v":-0.003404007},{"v":0.095267504},{"v":0.041536782},{"v":-0.22935645},{"v":0.003901114},{"v":0.069304384}],[{"f":3,"t":0.0235,"l":1,"r":2},{"f":1,"t":3,"l":3,"r":4},{"f":3,"t":0.1004,"l":5,"r":6},{"f":2,"t":8,"l":7,"r":8},{"f":1,"t":4,"l":9,"r":10},{"f":1,"t":7,"l":11,"r":12},{"f":3,"t":0.1274,"l":13,"r":14},{"v":-0.019385686},{"v":-0.1637768},{"v":0.15769954},{"v":0.022259679},{"v":0.02393299},{"v":-0.03305659},{"v":-0.04871158},{"v":0.005006699}],[{"f":0,"t":1,"l":1,"r":2},{"f":1,"t":4,"l":3,"r":4},{"f":2,"t":4,"l":5,"r":6},{"f":3,"t":1.2608,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":5,"t":1,"l":11,"r":12},{"f":5,"t":1,"l":13,"r":14},{"v":-0.08360499},{"v":-0.019251047},{"v":-0.025052562},{"v":0.017356811},{"v":0.011149898},{"v":-0.0019316275},{"v":0.15581965},{"v":0.023212766}],[{"f":3,"t":0.2244,"l":1,"r":2},{"f":2,"t":7,"l":3,"r":4},{"f":4,"t":1,"l":5,"r":6},{"f":3,"t":0.1884,"l":7,"r":8},{"f":5,"t":1,"l":9,"r":10},{"f":2,"t":4,"l":11,"r":12},{"f":3,"t":0.4654,"l":13,"r":14},{"v":-0.009473956},{"v":-0.058730643},{"v":0.09520568},{"v":-0.036775615},{"v":0.004215361},{"v":0.023005005},{"v":0.16010289},{"v":0.030013887}]]},"context":{"base_score":0.33266228,"features":["is_night","hour_deviation","new_device","account_age_days"],"trees":[[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":3,"t":15,"l":7,"r":8},{"f":3,"t":32,"l":9,"r":10},{"f":1,"t":6.1068,"l":11,"r":12},{"v":0.5838401},{"v":0.28320372},{"v":-0.26079997},{"v":0.4487562},{"v":0.36071223},{"v":0.40625358},{"v":0.49076462}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":32,"l":9,"r":10},{"f":3,"t":15,"l":11,"r":12},{"v":0.41021878},{"v":0.15049784},{"v":-0.24089856},{"v":0.337196},{"v":0.24360004},{"v":0.4123251},{"v":0.32306007}],[{"f":1,"t":3.8666,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":0,"t":1,"l":5,"r":6},{"f":3,"t":15,"l":7,"r":8},{"f":3,"t":15,"l":9,"r":10},{"f":1,"t":4.951,"l":11,"r":12},{"f":2,"t":1,"l":13,"r":14},{"v":0.16496532},{"v":-0.24130368},{"v":0.2948487},{"v":0.18897413},{"v":0.06322444},{"v":0.19311403},{"v":0.26188484},{"v":0.33676156}],[{"f":1,"t":3.8666,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":0,"t":1,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":15,"l":9,"r":10},{"f":2,"t":1,"l":11,"r":12},{"f":1,"t":6.1068,"l":13,"r":14},{"v":0.11123574},{"v":-0.23583117},{"v":0.25485167},{"v":0.15501742},{"v":0.058906186},{"v":0.20215432},{"v":0.18160549},{"v":0.23800163}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":3,"t":15,"l":7,"r":8},{"f":3,"t":32,"l":9,"r":10},{"f":1,"t":6.1068,"l":11,"r":12},{"v":0.26908424},{"v":0.10748992},{"v":-0.1863825},{"v":0.19624172},{"v":0.13105445},{"v":0.1415354},{"v":0.19604567}],[{"f":1,"t":3.8666,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":1,"t":4.951,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":590,"l":9,"r":10},{"f":3,"t":15,"l":11,"r":12},{"f":2,"t":1,"l":13,"r":14},{"v":0.0716435},{"v":-0.21715419},{"v":0.15066724},{"v":0.08091157},{"v":0.1935039},{"v":0.07043838},{"v":0.15721631},{"v":0.25333595}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":0,"t":1,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":1,"t":0.1981,"l":9,"r":10},{"f":3,"t":4,"l":11,"r":12},{"f":3,"t":15,"l":13,"r":14},{"v":0.057300474},{"v":-0.2247587},{"v":-0.016628496},{"v":0.104699686},{"v":0.14896421},{"v":0.03702164},{"v":0.24111266},{"v":0.13074175}],[{"f":1,"t":3.8666,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":1,"t":6.1068,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":1087,"l":9,"r":10},{"f":3,"t":15,"l":11,"r":12},{"f":0,"t":1,"l":13,"r":14},{"v":0.050845336},{"v":-0.20228545},{"v":0.09453977},{"v":0.040824246},{"v":0.13783382},{"v":0.05295607},{"v":0.019714965},{"v":0.14098969}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":1,"t":4.951,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":15,"l":9,"r":10},{"f":3,"t":1862,"l":11,"r":12},{"f":2,"t":1,"l":13,"r":14},{"v":0.042427715},{"v":-0.21597257},{"v":0.14868271},{"v":0.050332565},{"v":0.042697113},{"v":-0.10934851},{"v":0.09592601},{"v":0.21669658}],[{"f":0,"t":1,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":1,"t":0.8678,"l":9,"r":10},{"f":3,"t":15,"l":11,"r":12},{"v":0.21507238},{"v":0.027196942},{"v":-0.13924234},{"v":0.0819069},{"v":0.04824921},{"v":0.1977686},{"v":0.077513956}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":1,"t":8.4376,"l":5,"r":6},{"f":3,"t":4,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":1442,"l":11,"r":12},{"f":3,"t":87,"l":13,"r":14},{"v":0.07144794},{"v":0.0132879615},{"v":-0.2109695},{"v":0.029876312},{"v":0.031977236},{"v":0.07029752},{"v":0.19791672},{"v":0.09150686}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":1,"t":8.4376,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":32,"l":9,"r":10},{"f":3,"t":1789,"l":11,"r":12},{"f":3,"t":87,"l":13,"r":14},{"v":0.024654603},{"v":-0.2086976},{"v":0.1150428},{"v":0.030070877},{"v":0.04433484},{"v":-0.035086077},{"v":0.19193514},{"v":0.07939291}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":1,"t":8.4376,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":32,"l":9,"r":10},{"f":2,"t":1,"l":11,"r":12},{"f":3,"t":87,"l":13,"r":14},{"v":0.0020803546},{"v":-0.2068433},{"v":0.09294926},{"v":0.019564811},{"v":0.012512075},{"v":0.07639747},{"v":0.15825053},{"v":0.08414422}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":3,"t":15,"l":3,"r":4},{"f":3,"t":1585,"l":5,"r":6},{"f":1,"t":2.0528,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":1,"t":6.1068,"l":11,"r":12},{"f":3,"t":1862,"l":13,"r":14},{"v":0.022922704},{"v":0.09670242},{"v":-0.16689889},{"v":0.025328023},{"v":0.014287623},{"v":0.054680135},{"v":0.11330414},{"v":0.029161502}],[{"f":1,"t":4.327,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":1,"t":1.4165,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":15,"l":11,"r":12},{"f":3,"t":1087,"l":13,"r":14},{"v":-0.011998649},{"v":0.042167418},{"v":-0.11646988},{"v":0.0121000325},{"v":0.0963668},{"v":0.02622115},{"v":0.17514437},{"v":0.064492606}],[{"f":1,"t":2.7428,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":3,"t":15,"l":5,"r":6},{"f":3,"t":4,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":0,"t":1,"l":11,"r":12},{"f":3,"t":49,"l":13,"r":14},{"v":0.04244813},{"v":-0.006700881},{"v":-0.20345418},{"v":0.010551944},{"v":0.055339154},{"v":0.17603438},{"v":-0.05732423},{"v":0.03179528}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":1,"t":8.4376,"l":5,"r":6},{"f":1,"t":1.5336,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":1442,"l":11,"r":12},{"f":3,"t":32,"l":13,"r":14},{"v":-0.011363343},{"v":0.04704043},{"v":-0.20259102},{"v":0.01021626},{"v":0.0038476016},{"v":0.043028843},{"v":0.20019285},{"v":0.050504174}],[{"f":1,"t":3.8666,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":3,"t":236,"l":7,"r":8},{"f":3,"t":1087,"l":9,"r":10},{"f":3,"t":1151,"l":11,"r":12},{"f":0,"t":1,"l":13,"r":14},{"v":0.0021322716},{"v":-0.14949225},{"v":0.03673305},{"v":-0.0042771134},{"v":0.0105746165},{"v":0.044815578},{"v":0.01812918},{"v":0.17729528}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":3,"t":943,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":1652,"l":9,"r":10},{"f":3,"t":660,"l":11,"r":12},{"f":1,"t":3.8666,"l":13,"r":14},{"v":-0.020299233},{"v":-0.20108084},{"v":-0.00031725745},{"v":0.06360637},{"v":0.01383394},{"v":-0.08003626},{"v":0.09352537},{"v":0.020941999}],[{"f":1,"t":6.1068,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":1,"t":4.951,"l":7,"r":8},{"f":3,"t":49,"l":9,"r":10},{"f":3,"t":163,"l":11,"r":12},{"v":0.20316051},{"v":0.019439187},{"v":-0.07035371},{"v":-0.17185426},{"v":-0.022167288},{"v":0.0825636},{"v":0.013497612}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":1,"t":2.9564,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":1,"t":3.5095,"l":11,"r":12},{"f":1,"t":4.327,"l":13,"r":14},{"v":-0.003079388},{"v":-0.1115942},{"v":-0.20007287},{"v":-0.012266738},{"v":0.082382835},{"v":-0.0026551948},{"v":-0.037690036},{"v":0.16377273}],[{"f":1,"t":2.363,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":3,"t":1369,"l":5,"r":6},{"f":1,"t":0.2992,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":236,"l":11,"r":12},{"f":3,"t":1789,"l":13,"r":14},{"v":0.06132489},{"v":-0.007580423},{"v":-0.19860838},{"v":-0.0041405167},{"v":0.025704179},{"v":-0.013798298},{"v":0.05606533},{"v":-0.0022238637}],[{"f":1,"t":2.2051,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":3,"t":15,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":1,"t":1.777,"l":9,"r":10},{"f":1,"t":2.9564,"l":11,"r":12},{"f":1,"t":3.199,"l":13,"r":14},{"v":-0.00846169},{"v":-0.19745107},{"v":0.020367434},{"v":-0.058925282},{"v":0.094696276},{"v":0.014423534},{"v":-0.04284573},{"v":0.017008316}],[{"f":1,"t":0.1981,"l":1,"r":2},{"f":3,"t":1221,"l":3,"r":4},{"f":1,"t":0.2992,"l":5,"r":6},{"f":2,"t":1,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":590,"l":11,"r":12},{"f":2,"t":1,"l":13,"r":14},{"v":-0.09246054},{"v":0.07239425},{"v":-0.12004151},{"v":-0.48487982},{"v":0.14902548},{"v":-0.012272157},{"v":-0.008446398},{"v":0.01771116}],[{"f":1,"t":1.5336,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":3,"t":15,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":876,"l":9,"r":10},{"f":0,"t":1,"l":11,"r":12},{"f":3,"t":49,"l":13,"r":14},{"v":-0.021160593},{"v":-0.19476674},{"v":-0.035046436},{"v":0.036801327},{"v":0.02739398},{"v":0.13051021},{"v":-0.07963583},{"v":0.00849834}],[{"f":3,"t":1862,"l":1,"r":2},{"f":3,"t":1652,"l":3,"r":4},{"f":3,"t":1932,"l":5,"r":6},{"f":3,"t":447,"l":7,"r":8},{"f":1,"t":0.4844,"l":9,"r":10},{"f":0,"t":1,"l":11,"r":12},{"f":1,"t":1.9062,"l":13,"r":14},{"v":0.012567244},{"v":-0.014797816},{"v":-0.15815109},{"v":0.0751562},{"v":-0.13863604},{"v":-0.007191468},{"v":-0.15253781},{"v":0.024503907}],[{"f":1,"t":6.1068,"l":1,"r":2},{"f":3,"t":4,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":1,"t":0.2992,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":163,"l":11,"r":12},{"v":0.18943268},{"v":0.0740402},{"v":0.021044398},{"v":-0.02154401},{"v":0.0043469495},{"v":0.061772652},{"v":0.0096079325}],[{"f":1,"t":0.1981,"l":1,"r":2},{"f":3,"t":1087,"l":3,"r":4},{"f":1,"t":3.8666,"l":5,"r":6},{"f":3,"t":163,"l":7,"r":8},{"f":3,"t":1652,"l":9,"r":10},{"f":1,"t":0.4844,"l":11,"r":12},{"f":3,"t":1789,"l":13,"r":14},{"v":-0.08329532},{"v":0.039638083},{"v":-0.2863565},{"v":-0.07546473},{"v":0.0406364},{"v":-0.011289037},{"v":0.021972993},{"v":-0.023738975}],[{"f":3,"t":380,"l":1,"r":2},{"f":1,"t":0.8678,"l":3,"r":4},{"f":3,"t":943,"l":5,"r":6},{"f":1,"t":0.7728,"l":7,"r":8},{"f":1,"t":1.1838,"l":9,"r":10},{"f":3,"t":660,"l":11,"r":12},{"f":3,"t":1087,"l":13,"r":14},{"v":0.030416144},{"v":0.12944852},{"v":-0.0579166},{"v":0.0075946935},{"v":-0.013567249},{"v":-0.06088878},{"v":0.061425406},{"v":-0.0106987795}],[{"f":2,"t":1,"l":1,"r":2},{"f":1,"t":3.199,"l":3,"r":4},{"f":1,"t":6.1068,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":49,"l":9,"r":10},{"f":0,"t":1,"l":11,"r":12},{"v":0.18530487},{"v":-0.008050601},{"v":-0.19714224},{"v":-0.032944005},{"v":0.005924904},{"v":0.0147853065},{"v":0.096059054}],[{"f":1,"t":4.951,"l":1,"r":2},{"f":3,"t":15,"l":3,"r":4},{"f":2,"t":1,"l":5,"r":6},{"f":1,"t":0.3894,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":943,"l":11,"r":12},{"f":3,"t":1442,"l":13,"r":14},{"v":-0.037864197},{"v":0.01907738},{"v":-0.031159988},{"v":-0.0016254347},{"v":-0.0107863825},{"v":0.032309275},{"v":0.15822367},{"v":-0.019615537}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":3,"t":1652,"l":3,"r":4},{"f":1,"t":4.327,"l":5,"r":6},{"f":1,"t":2.9564,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":2,"t":1,"l":11,"r":12},{"f":2,"t":1,"l":13,"r":14},{"v":-0.016259683},{"v":-0.12498374},{"v":-0.17419337},{"v":0.06621436},{"v":0.046098407},{"v":-0.044701926},{"v":0.003771954},{"v":0.067523725}],[{"f":3,"t":1862,"l":1,"r":2},{"f":3,"t":1652,"l":3,"r":4},{"f":1,"t":4.951,"l":5,"r":6},{"f":3,"t":447,"l":7,"r":8},{"f":3,"t":1789,"l":9,"r":10},{"f":0,"t":1,"l":11,"r":12},{"f":0,"t":1,"l":13,"r":14},{"v":0.0110143805},{"v":-0.007778305},{"v":0.07593859},{"v":-0.001145822},{"v":-0.10601749},{"v":0.038843587},{"v":0.15772824},{"v":-0.035093438}],[{"f":1,"t":0.8678,"l":1,"r":2},{"f":3,"t":1722,"l":3,"r":4},{"f":1,"t":1.4165,"l":5,"r":6},{"f":3,"t":1652,"l":7,"r":8},{"f":1,"t":0.7728,"l":9,"r":10},{"f":3,"t":4,"l":11,"r":12},{"f":3,"t":1862,"l":13,"r":14},{"v":0.02633589},{"v":0.14935653},{"v":-0.1498656},{"v":0.14961003},{"v":0.018915022},{"v":-0.07616671},{"v":0.0035390758},{"v":-0.045921896}],[{"f":2,"t":1,"l":1,"r":2},{"f":3,"t":236,"l":3,"r":4},{"f":0,"t":1,"l":5,"r":6},{"f":0,"t":1,"l":7,"r":8},{"f":1,"t":3.199,"l":9,"r":10},{"f":1,"t":3.8666,"l":11,"r":12},{"v":0.16268432},{"v":0.0025999283},{"v":0.045998883},{"v":-0.19442251},{"v":-0.0044466886},{"v":0.017008215},{"v":-0.069373615}],[{"f":1,"t":0.1981,"l":1,"r":2},{"f":3,"t":1221,"l":3,"r":4},{"f":1,"t":0.2992,"l":5,"r":6},{"f":3,"t":163,"l":7,"r":8},{"v":-0.3189941},{"f":3,"t":590,"l":9,"r":10},{"f":3,"t":1932,"l":11,"r":12},{"v":-0.05627011},{"v":0.07774337},{"v":0.09469322},{"v":0.02323801},{"v":-0.0002507069},{"v":0.042392313}],[{"f":3,"t":447,"l":1,"r":2},{"f":3,"t":307,"l":3,"r":4},{"f":3,"t":732,"l":5,"r":6},{"f":0,"t":1,"l":7,"r":8},{"f":0,"t":1,"l":9,"r":10},{"f":1,"t":1.0743,"l":11,"r":12},{"f":1,"t":0.2992,"l":13,"r":14},{"v":-0.0051406194},{"v":0.039076097},{"v":0.06268003},{"v":-0.011826306},{"v":0.033895347},{"v":-0.08986509},{"v":-0.084677495},{"v":0.0018528547}],[{"f":2,"t":1,"l":1,"r":2},{"f":1,"t":3.5095,"l":3,"r":4},{"f":1,"t":6.1068,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":1789,"l":9,"r":10},{"f":1,"t":0.8678,"l":11,"r":12},{"v":0.1661713},{"v":-0.0045191934},{"v":-0.12901148},{"v":0.008226364},{"v":-0.045676146},{"v":0.033047613},{"v":-0.0017202748}],[{"f":3,"t":1652,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":3,"t":1862,"l":5,"r":6},{"f":3,"t":4,"l":7,"r":8},{"f":1,"t":1.1838,"l":9,"r":10},{"f":1,"t":6.1068,"l":11,"r":12},{"f":1,"t":0.4844,"l":13,"r":14},{"v":0.011539872},{"v":-0.012694025},{"v":-0.01520242},{"v":0.02592708},{"v":0.07128971},{"v":0.012057321},{"v":0.11180192},{"v":-0.010546729}],[{"f":3,"t":660,"l":1,"r":2},{"f":3,"t":590,"l":3,"r":4},{"f":3,"t":732,"l":5,"r":6},{"f":1,"t":4.951,"l":7,"r":8},{"f":1,"t":3.5095,"l":9,"r":10},{"f":1,"t":0.9669,"l":11,"r":12},{"f":1,"t":0.0978,"l":13,"r":14},{"v":0.015650045},{"v":-0.013636999},{"v":-0.028097713},{"v":0.12505107},{"v":-0.44914126},{"v":-0.15137492},{"v":-0.11888211},{"v":-0.0018325085}],[{"f":3,"t":1294,"l":1,"r":2},{"f":3,"t":590,"l":3,"r":4},{"f":1,"t":0.0978,"l":5,"r":6},{"f":1,"t":1.6582,"l":7,"r":8},{"f":1,"t":1.1838,"l":9,"r":10},{"v":-0.23437367},{"f":3,"t":1652,"l":11,"r":12},{"v":0.01301029},{"v":-0.012817194},{"v":-0.020815475},{"v":0.023959722},{"v":-0.02506241},{"v":0.0071678483}],[{"f":1,"t":0.4844,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":1,"t":0.5859,"l":5,"r":6},{"f":3,"t":15,"l":7,"r":8},{"f":3,"t":87,"l":9,"r":10},{"f":3,"t":15,"l":11,"r":12},{"f":1,"t":1.4165,"l":13,"r":14},{"v":0.0063173114},{"v":0.14408107},{"v":-0.2334824},{"v":0.008230518},{"v":-0.04537941},{"v":-0.1490117},{"v":-0.028767636},{"v":-0.003522689}],[{"f":1,"t":1.0743,"l":1,"r":2},{"f":3,"t":660,"l":3,"r":4},{"f":1,"t":1.1838,"l":5,"r":6},{"f":1,"t":0.2992,"l":7,"r":8},{"f":1,"t":0.0978,"l":9,"r":10},{"f":2,"t":1,"l":11,"r":12},{"f":1,"t":6.1068,"l":13,"r":14},{"v":0.059058297},{"v":0.015521099},{"v":-0.16495721},{"v":0.018385205},{"v":-0.21803728},{"v":-0.025374046},{"v":-0.0022095998},{"v":0.017368775}],[{"f":3,"t":1932,"l":1,"r":2},{"f":3,"t":49,"l":3,"r":4},{"f":1,"t":4.327,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":3,"t":1087,"l":9,"r":10},{"f":1,"t":3.199,"l":11,"r":12},{"f":1,"t":4.951,"l":13,"r":14},{"v":-0.009850108},{"v":-0.08987458},{"v":0.0113298},{"v":-0.010255967},{"v":0.046414785},{"v":0.22127254},{"v":-0.22903366},{"v":0.008304372}],[{"f":2,"t":1,"l":1,"r":2},{"f":1,"t":1.296,"l":3,"r":4},{"f":0,"t":1,"l":5,"r":6},{"f":1,"t":1.0743,"l":7,"r":8},{"f":1,"t":4.327,"l":9,"r":10},{"f":1,"t":3.199,"l":11,"r":12},{"f":3,"t":520,"l":13,"r":14},{"v":-0.011224501},{"v":-0.15558615},{"v":0.011442031},{"v":-0.0054668793},{"v":0.019458232},{"v":-0.046905708},{"v":0.034906697},{"v":0.15827894}],[{"f":3,"t":1151,"l":1,"r":2},{"f":3,"t":1087,"l":3,"r":4},{"f":1,"t":8.4376,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":1,"t":3.8666,"l":9,"r":10},{"f":1,"t":2.363,"l":11,"r":12},{"f":3,"t":1221,"l":13,"r":14},{"v":0.014269935},{"v":-0.010716558},{"v":0.0010449652},{"v":-0.17029224},{"v":-0.01367776},{"v":0.039384507},{"v":-0.11700399},{"v":-0.021542495}],[{"f":3,"t":1585,"l":1,"r":2},{"f":3,"t":1087,"l":3,"r":4},{"f":1,"t":0.2992,"l":5,"r":6},{"f":3,"t":943,"l":7,"r":8},{"f":3,"t":1442,"l":9,"r":10},{"v":-0.23170152},{"f":3,"t":1862,"l":11,"r":12},{"v":0.004060156},{"v":0.059477955},{"v":-0.048408538},{"v":0.0021069904},{"v":0.038766436},{"v":-0.0046904995}],[{"f":1,"t":0.7728,"l":1,"r":2},{"f":3,"t":1722,"l":3,"r":4},{"f":3,"t":1294,"l":5,"r":6},{"f":3,"t":1442,"l":7,"r":8},{"f":1,"t":0.3894,"l":9,"r":10},{"f":3,"t":1151,"l":11,"r":12},{"f":1,"t":3.8666,"l":13,"r":14},{"v":-0.028637696},{"v":0.071438074},{"v":-0.23707044},{"v":-0.120270364},{"v":0.006593595},{"v":0.037895832},{"v":0.022369541},{"v":-0.029799148}],[{"f":1,"t":8.4376,"l":1,"r":2},{"f":1,"t":0.0978,"l":3,"r":4},{"f":3,"t":32,"l":5,"r":6},{"f":3,"t":1221,"l":7,"r":8},{"f":1,"t":0.1981,"l":9,"r":10},{"v":0.13135676},{"f":3,"t":380,"l":11,"r":12},{"v":0.0566175},{"v":-0.1770479},{"v":-0.082259275},{"v":-0.0021201398},{"v":-0.07092143},{"v":0.033389352}],[{"f":1,"t":0.0978,"l":1,"r":2},{"f":3,"t":1221,"l":3,"r":4},{"f":3,"t":1585,"l":5,"r":6},{"f":3,"t":87,"l":7,"r":8},{"v":-0.15887307},{"f":1,"t":1.1838,"l":9,"r":10},{"f":1,"t":1.296,"l":11,"r":12},{"v":0.03949936},{"v":0.117339864},{"v":-0.017894756},{"v":0.0039176866},{"v":0.07037389},{"v":0.01283046}],[{"f":2,"t":1,"l":1,"r":2},{"f":3,"t":1151,"l":3,"r":4},{"f":1,"t":4.951,"l":5,"r":6},{"f":3,"t":520,"l":7,"r":8},{"f":1,"t":3.199,"l":9,"r":10},{"f":3,"t":307,"l":11,"r":12},{"f":3,"t":1442,"l":13,"r":14},{"v":-0.0031734386},{"v":-0.034320097},{"v":-0.18203147},{"v":0.020754749},{"v":-0.022969535},{"v":0.021237122},{"v":0.1821928},{"v":-0.118505396}],[{"f":3,"t":4,"l":1,"r":2},{"f":2,"t":1,"l":3,"r":4},{"f":1,"t":0.8678,"l":5,"r":6},{"f":1,"t":1.9062,"l":7,"r":8},{"f":1,"t":1.0743,"l":9,"r":10},{"f":1,"t":0.7728,"l":11,"r":12},{"f":1,"t":2.7428,"l":13,"r":14},{"v":0.02128649},{"v":0.059225418},{"v":0.115246095},{"v":-0.20700236},{"v":0.0035246515},{"v":0.085607834},{"v":-0.024706157},{"v":-0.002901059}],[{"f":1,"t":1.5336,"l":1,"r":2},{"f":1,"t":0.4844,"l":3,"r":4},{"f":1,"t":1.6582,"l":5,"r":6},{"f":3,"t":1932,"l":7,"r":8},{"f":3,"t":1789,"l":9,"r":10},{"f":3,"t":1585,"l":11,"r":12},{"f":1,"t":2.0528,"l":13,"r":14},{"v":0.007743941},{"v":0.19337276},{"v":-0.034814045},{"v":0.06546873},{"v":0.08934589},{"v":-0.08428373},{"v":-0.036860153},{"v":0.008761464}],[{"f":1,"t":3.199,"l":1,"r":2},{"f":3,"t":380,"l":3,"r":4},{"f":3,"t":1932,"l":5,"r":6},{"f":3,"t":307,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":1221,"l":11,"r":12},{"f":1,"t":3.5095,"l":13,"r":14},{"v":-0.002819573},{"v":0.06767535},{"v":-0.18958022},{"v":-0.010464023},{"v":0.011643367},{"v":-0.013105831},{"v":0.45780793},{"v":0.042581405}],[{"f":1,"t":0.1981,"l":1,"r":2},{"f":3,"t":15,"l":3,"r":4},{"f":1,"t":3.8666,"l":5,"r":6},{"f":1,"t":0.0978,"l":7,"r":8},{"f":3,"t":163,"l":9,"r":10},{"f":1,"t":1.1838,"l":11,"r":12},{"f":3,"t":380,"l":13,"r":14},{"v":-0.08053278},{"v":0.05690102},{"v":-0.20610312},{"v":-0.055951487},{"v":-0.0117771635},{"v":0.019003997},{"v":-0.030103195},{"v":-0.0052284137}],[{"f":1,"t":2.5509,"l":1,"r":2},{"f":3,"t":32,"l":3,"r":4},{"f":3,"t":32,"l":5,"r":6},{"f":3,"t":15,"l":7,"r":8},{"f":2,"t":1,"l":9,"r":10},{"f":3,"t":15,"l":11,"r":12},{"f":1,"t":3.8666,"l":13,"r":14},{"v":0.01949298},{"v":0.072963595},{"v":-0.18915448},{"v":0.0053651095},{"v":-0.011765819},{"v":-0.105715945},{"v":0.026856232},{"v":-0.002100988}],[{"f":1,"t":1.6582,"l":1,"r":2},{"f":1,"t":1.5336,"l":3,"r":4},{"f":3,"t":1789,"l":5,"r":6},{"f":3,"t":1789,"l":7,"r":8},{"f":3,"t":1369,"l":9,"r":10},{"f":3,"t":1585,"l":11,"r":12},{"f":1,"t":1.9062,"l":13,"r":14},{"v":0.008207872},{"v":0.07283972},{"v":0.0763333},{"v":-0.047909673},{"v":-0.006588235},{"v":0.038693562},{"v":-0.33632433},{"v":-0.034015045}],[{"f":2,"t":1,"l":1,"r":2},{"f":1,"t":0.2992,"l":3,"r":4},{"f":3,"t":1932,"l":5,"r":6},{"f":3,"t":15,"l":7,"r":8},{"f":1,"t":0.3894,"l":9,"r":10},{"f":1,"t":1.777,"l":11,"r":12},{"f":1,"t":0.4844,"l":13,"r":14},{"v":0.0049300506},{"v":0.08047371},{"v":-0.17995957},{"v":-0.009570478},{"v":0.033005305},{"v":0.0010817003},{"v":0.1810166},{"v":-0.20604487}],[{"f":3,"t":1862,"l":1,"r":2},{"f":3,"t":49,"l":3,"r":4},{"f":1,"t":0.4844,"l":5,"r":6},{"f":3,"t":32,"l":7,"r":8},{"f":0,"t":1,"l":9,"r":10},{"v":0.105697714},{"f":1,"t":0.8678,"l":11,"r":12},{"v":0.0033201312},{"v":-0.09775761},{"v":0.020954568},{"v":-0.0034854996},{"v":-0.20361717},{"v":-0.033372533}],[{"f":3,"t":1221,"l":1,"r":2},{"f":3,"t":1151,"l":3,"r":4},{"f":1,"t":0.1981,"l":5,"r":6},{"f":1,"t":8.4376,"l":7,"r":8},{"f":1,"t":2.0528,"l":9,"r":10},{"v":-0.20094478},{"f":3,"t":1652,"l":11,"r":12},{"v":-0.00013128073},{"v":0.034968764},{"v":-0.0881198},{"v":0.12922888},{"v":-0.02554746},{"v":0.011893607}]]}}}</script>
+<script>/*
+ * Yogii Risk Web: simulated UPI-style payments with a prototype fraud-risk engine.
+ *
+ * EVERYTHING IS SIMULATED. No real UPI, bank or NPCI connection exists. Balances
+ * are demo numbers. The risk model was trained on synthetic data only and its
+ * thresholds are Yogii prototype values, not RBI, NPCI or bank standards.
+ *
+ * Layout of this file:
+ *   1. Constants, clock, storage
+ *   2. Model loading and validation
+ *   3. Demo directory and seed data
+ *   4. Risk engine (features, XGBoost trees, payment graph, receiver side, stacker, reasons)
+ *   5. Model-based limits
+ *   6. Payment state machine, MockPaymentProvider, payment service
+ *   7. Accounts (PBKDF2), sessions, lockout
+ *   8. UI
+ *
+ * Tests load this file with globalThis.__YOGII_TEST__ = { model } set; the UI then
+ * does not boot and the internals are exposed on __YOGII_TEST__.api.
+ */
+(function (root) {
+  'use strict';
+
+  var TEST = root.__YOGII_TEST__ || null;
+
+  // ------------------------------------------------------------------
+  // 1. Constants, clock, storage
+  // ------------------------------------------------------------------
+  var MIN = 60 * 1000;
+  var HOUR = 60 * MIN;
+  var DAY = 24 * HOUR;
+  var DEMO_PIN = '1234'; // compared in memory only, never stored; not a UPI PIN
+  var DEMO_CEILING = 100000;
+  var START_BALANCE = 300000;
+  var SESSION_MS = 12 * HOUR;
+  var LOCK_MS = 60 * 1000;
+  var MAX_FAILS = 5;
+  var PBKDF2_ITERATIONS = 150000;
+  var STORAGE_KEY = 'yogii-risk-web.v1';
+  var DATA_VERSION = 1;
+
+  var FEATURES = {
+    amount: ['log_amount', 'amount_ratio', 'amount_z', 'share_of_balance', 'is_round'],
+    behavior: ['is_new_recipient', 'prior_count', 'tx_count_30m', 'value_24h_ratio', 'indirect_connection', 'is_p2m'],
+    context: ['is_night', 'hour_deviation', 'new_device', 'account_age_days']
+  };
+  var BAND_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH'];
+
+  var nowFn = function () { return Date.now(); };
+  function now() { return nowFn(); }
+
+  var Storage = {
+    get: function (key) {
+      try {
+        var raw = root.localStorage ? root.localStorage.getItem(key) : null;
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    },
+    set: function (key, value) {
+      try { if (root.localStorage) root.localStorage.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; }
+    },
+    remove: function (key) {
+      try { if (root.localStorage) root.localStorage.removeItem(key); } catch (e) { /* ignore */ }
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // 2. Model loading and validation (no fallback: a missing model is an error)
+  // ------------------------------------------------------------------
+  function validateModel(m) {
+    if (!m || typeof m !== 'object') throw new Error('Risk model file is missing or empty.');
+    if (m.format !== 'yogii-risk-model') throw new Error('Risk model has an unknown format.');
+    ['amount', 'behavior', 'context'].forEach(function (c) {
+      var comp = m.components && m.components[c];
+      if (!comp || !Array.isArray(comp.trees) || comp.trees.length === 0) throw new Error('Risk model is missing the ' + c + ' component.');
+      if (JSON.stringify(comp.features) !== JSON.stringify(FEATURES[c]) || JSON.stringify(m.features[c]) !== JSON.stringify(FEATURES[c])) {
+        throw new Error('Risk model features for ' + c + ' do not match this app.');
+      }
+      if (!(comp.base_score > 0 && comp.base_score < 1)) throw new Error('Risk model ' + c + ' has an invalid base score.');
+    });
+    if (!m.stacker || !Array.isArray(m.stacker.weights) || m.stacker.weights.length !== 5) throw new Error('Risk model stacker is invalid.');
+    if (!m.graph || !m.receiver || !Array.isArray(m.bands)) throw new Error('Risk model settings are incomplete.');
+    return m;
+  }
+
+  var MODEL = null;
+  var MODEL_ERROR = null;
+  function setModel(m) {
+    try { MODEL = validateModel(m); MODEL_ERROR = null; } catch (e) { MODEL = null; MODEL_ERROR = e.message; }
+    return MODEL;
+  }
+  function requireModel() {
+    if (!MODEL) throw new Error(MODEL_ERROR || 'Risk model is not loaded.');
+    return MODEL;
+  }
+
+  // ------------------------------------------------------------------
+  // 3. Demo directory and seed data (all fictional)
+  // ------------------------------------------------------------------
+  var SEED_USERS = [
+    { id: 'u_yogesh', name: 'Yogesh Kumar', email: 'yogesh@demo.yogii', upi: 'yogesh@yogii', phone: '9876543210', ageDays: 400 },
+    { id: 'u_visrojit', name: 'Visrojit Sharma', email: 'visrojit@demo.yogii', upi: 'visrojit@yogii', phone: '9876543211', ageDays: 250 },
+    { id: 'u_dinesh', name: 'Dinesh Patel', email: 'dinesh@demo.yogii', upi: 'dinesh@yogii', phone: '9876543212', ageDays: 180 }
+  ];
+  var SEED_PASSWORD = 'Password123!';
+
+  // Recipients that are not Yogii users. "registered" means known to the demo directory.
+  var DIRECTORY = [
+    { upi: 'rahul@upi', name: 'Rahul Mehta', type: 'contact', registered: true, ageDays: 900 },
+    { upi: 'freshmarket@merchant', name: 'Fresh Market', type: 'merchant', registered: true, ageDays: 1200 },
+    { upi: 'campuscafe@merchant', name: 'Campus Cafe', type: 'merchant', registered: true, ageDays: 800 },
+    { upi: 'techgadgets@merchant', name: 'Tech Gadgets', type: 'merchant', registered: true, ageDays: 600 },
+    { upi: 'crypto_drain@unknown', name: 'crypto_drain', type: 'unknown', registered: false, ageDays: 2, watchlist: true }
+  ];
+
+  // [from, to, amount, daysAgo, hourOfDay] — times are relative to "now" when seeding.
+  var SEED_PAYMENTS = [
+    ['yogesh@yogii', 'rahul@upi', 800, 2, 11], ['yogesh@yogii', 'rahul@upi', 1200, 5, 19],
+    ['yogesh@yogii', 'rahul@upi', 1500, 9, 13], ['yogesh@yogii', 'rahul@upi', 900, 14, 18],
+    ['yogesh@yogii', 'rahul@upi', 2000, 20, 12], ['yogesh@yogii', 'rahul@upi', 1100, 26, 16],
+    ['yogesh@yogii', 'freshmarket@merchant', 1450, 3, 17], ['yogesh@yogii', 'freshmarket@merchant', 2300, 8, 10],
+    ['yogesh@yogii', 'freshmarket@merchant', 1750, 16, 18], ['yogesh@yogii', 'freshmarket@merchant', 1600, 23, 11],
+    ['yogesh@yogii', 'campuscafe@merchant', 250, 4, 13], ['yogesh@yogii', 'campuscafe@merchant', 400, 12, 14],
+    ['yogesh@yogii', 'campuscafe@merchant', 320, 18, 15],
+    ['visrojit@yogii', 'freshmarket@merchant', 3200, 3, 12], ['visrojit@yogii', 'freshmarket@merchant', 2600, 10, 18],
+    ['visrojit@yogii', 'campuscafe@merchant', 900, 6, 15], ['visrojit@yogii', 'techgadgets@merchant', 4500, 15, 16],
+    ['visrojit@yogii', 'freshmarket@merchant', 2800, 21, 11], ['visrojit@yogii', 'campuscafe@merchant', 1600, 25, 14],
+    ['dinesh@yogii', 'freshmarket@merchant', 1500, 2, 10], ['dinesh@yogii', 'campuscafe@merchant', 600, 5, 13],
+    ['dinesh@yogii', 'freshmarket@merchant', 2100, 11, 17], ['dinesh@yogii', 'techgadgets@merchant', 2800, 17, 15],
+    ['dinesh@yogii', 'campuscafe@merchant', 500, 22, 12], ['dinesh@yogii', 'freshmarket@merchant', 1500, 27, 19]
+  ];
+
+  function startOfLocalDay(t) { var d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); }
+
+  function emptyDb() {
+    return { version: DATA_VERSION, users: [], payments: [], session: null, lockouts: {}, prefs: { theme: 'system', hideBalance: false }, seq: 0 };
+  }
+
+  function seedPayments(db, t) {
+    var day0 = startOfLocalDay(t);
+    SEED_PAYMENTS.forEach(function (s, i) {
+      var sender = findUserByUpi(db, s[0]);
+      var r = resolveKnown(db, s[1]);
+      var at = day0 - s[3] * DAY + s[4] * HOUR;
+      db.payments.push({
+        id: 'seed' + String(i + 1).padStart(3, '0'), key: 'seed-' + (i + 1), fromUserId: sender.id, from: s[0],
+        fromName: sender.name, to: s[1], toName: r.name, toType: r.type, amount: s[2], createdAt: at, updatedAt: at,
+        status: 'COMPLETED', settled: true, seeded: true, timeline: [{ status: 'COMPLETED', at: at, note: 'Demo history (fictional)' }],
+        risk: null, controls: null, seq: ++db.seq
+      });
+    });
+  }
+
+  async function seedDb(options) {
+    var t = now();
+    var db = emptyDb();
+    var fast = options && options.fastHash;
+    for (var i = 0; i < SEED_USERS.length; i++) {
+      var u = SEED_USERS[i];
+      var cred = await hashPassword(SEED_PASSWORD, null, fast ? 1000 : PBKDF2_ITERATIONS);
+      db.users.push({ id: u.id, name: u.name, email: u.email, upi: u.upi, phone: u.phone, balance: START_BALANCE,
+        createdAt: t - u.ageDays * DAY, salt: cred.salt, hash: cred.hash, iterations: cred.iterations, seeded: true, lastSignIn: null });
+    }
+    seedPayments(db, t);
+    return db;
+  }
+
+  // ------------------------------------------------------------------
+  // Lookups
+  // ------------------------------------------------------------------
+  function findUser(db, id) { for (var i = 0; i < db.users.length; i++) if (db.users[i].id === id) return db.users[i]; return null; }
+  function findUserByUpi(db, upi) { for (var i = 0; i < db.users.length; i++) if (db.users[i].upi === upi) return db.users[i]; return null; }
+  function findUserByEmail(db, email) {
+    var e = String(email || '').trim().toLowerCase();
+    for (var i = 0; i < db.users.length; i++) if (db.users[i].email === e) return db.users[i];
+    return null;
+  }
+  function findUserByPhone(db, phone) { for (var i = 0; i < db.users.length; i++) if (db.users[i].phone === phone) return db.users[i]; return null; }
+  function directoryEntry(upi) { for (var i = 0; i < DIRECTORY.length; i++) if (DIRECTORY[i].upi === upi) return DIRECTORY[i]; return null; }
+  function findPayment(db, id) { for (var i = 0; i < db.payments.length; i++) if (db.payments[i].id === id) return db.payments[i]; return null; }
+
+  var UPI_RE = /^[a-z0-9][a-z0-9._-]{1,63}@[a-z][a-z0-9.-]{1,31}$/;
+
+  function resolveKnown(db, upi) {
+    var u = findUserByUpi(db, upi);
+    if (u) return { upi: u.upi, name: u.name, type: 'user', registered: true, userId: u.id, createdAt: u.createdAt, watchlist: false };
+    var d = directoryEntry(upi);
+    if (d) return { upi: d.upi, name: d.name, type: d.type, registered: d.registered, createdAt: now() - d.ageDays * DAY, watchlist: !!d.watchlist };
+    return { upi: upi, name: 'Unregistered UPI ID', type: 'unregistered', registered: false, createdAt: null, watchlist: false };
+  }
+
+  /** Resolve what the sender typed (UPI ID or 10-digit mobile) into a recipient. */
+  function resolveRecipient(db, input, senderId) {
+    var raw = String(input || '').trim().toLowerCase().replace(/\s+/g, '');
+    if (!raw) return { error: 'Enter a UPI ID or a 10-digit mobile number.' };
+    var r;
+    if (/^(\+91)?[0-9]{10}$/.test(raw)) {
+      var phone = raw.slice(-10);
+      var u = findUserByPhone(db, phone);
+      if (!u) return { error: 'No Yogii account uses this mobile number.' };
+      r = resolveKnown(db, u.upi);
+    } else if (UPI_RE.test(raw)) {
+      r = resolveKnown(db, raw);
+    } else {
+      return { error: 'That doesn’t look like a UPI ID (name@bank) or a 10-digit mobile number.' };
+    }
+    if (r.userId && r.userId === senderId) return { error: 'You can’t send money to yourself.' };
+    return { recipient: r };
+  }
+
+  // ------------------------------------------------------------------
+  // 4. Risk engine
+  // ------------------------------------------------------------------
+  function clip(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+  function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+
+  function isOutflow(p) { return p.status === 'COMPLETED' || p.status === 'PENDING'; }
+
+  function localHour(t) { var d = new Date(t); return d.getHours() + d.getMinutes() / 60; }
+
+  /** Circular mean of hours of day (so 23:00 and 01:00 average to midnight, not noon). */
+  function circularMeanHour(hours) {
+    var s = 0, c = 0;
+    hours.forEach(function (h) { var a = h / 24 * 2 * Math.PI; s += Math.sin(a); c += Math.cos(a); });
+    var ang = Math.atan2(s, c);
+    if (ang < 0) ang += 2 * Math.PI;
+    return ang / (2 * Math.PI) * 24;
+  }
+  function circularDistance(a, b) { var d = Math.abs(a - b) % 24; return Math.min(d, 24 - d); }
+
+  function senderHistory(db, sender, at, excludeId) {
+    return db.payments.filter(function (p) {
+      return p.fromUserId === sender.id && p.id !== excludeId && isOutflow(p) && p.createdAt <= at;
+    });
+  }
+
+  function buildFeatures(db, ctx) {
+    var sender = ctx.sender, r = ctx.recipient, amount = ctx.amount, at = ctx.at, controls = ctx.controls || {};
+    var hist = senderHistory(db, sender, at, ctx.excludeId);
+    var last30 = hist.filter(function (p) { return at - p.createdAt <= 30 * DAY; });
+    var avg = 2000, std = 1000;
+    if (last30.length >= 3) {
+      avg = last30.reduce(function (s, p) { return s + p.amount; }, 0) / last30.length;
+      std = Math.sqrt(last30.reduce(function (s, p) { return s + (p.amount - avg) * (p.amount - avg); }, 0) / last30.length);
+    }
+    var prior = hist.filter(function (p) { return p.to === r.upi; }).length;
+    var isNew = prior === 0 ? 1 : 0;
+    var c30 = hist.filter(function (p) { return at - p.createdAt <= 30 * MIN; }).length;
+    var v24 = hist.filter(function (p) { return at - p.createdAt <= DAY; }).reduce(function (s, p) { return s + p.amount; }, 0);
+    var path = isNew ? indirectPath(db, sender.upi, r.upi, at, ctx.excludeId) : null;
+    var hour = controls.night ? 2 : localHour(at);
+    var hours = hist.filter(function (p) { return at - p.createdAt <= 90 * DAY; }).map(function (p) { return localHour(p.createdAt); });
+    var dev = hours.length >= 3 ? circularDistance(hour, circularMeanHour(hours)) : 0;
+    var f = {
+      log_amount: Math.log(1 + amount),
+      amount_ratio: amount / avg,
+      amount_z: (amount - avg) / Math.max(std, 0.25 * avg, 100),
+      share_of_balance: clip(amount / Math.max(sender.balance, 1), 0, 5),
+      is_round: amount >= 5000 && amount % 1000 === 0 ? 1 : 0,
+      is_new_recipient: isNew,
+      prior_count: Math.min(prior, 50),
+      tx_count_30m: c30,
+      value_24h_ratio: v24 / Math.max(avg, 100),
+      indirect_connection: path ? 1 : 0,
+      is_p2m: r.type === 'merchant' ? 1 : 0,
+      is_night: hour < 5 ? 1 : 0,
+      hour_deviation: dev,
+      new_device: controls.newDevice ? 1 : 0,
+      account_age_days: Math.min(3650, Math.max(0, Math.floor((at - sender.createdAt) / DAY)))
+    };
+    return { features: f, indirectPath: path };
+  }
+
+  function predictComponent(comp, x) {
+    var b = comp.base_score;
+    var margin = Math.log(b / (1 - b));
+    for (var i = 0; i < comp.trees.length; i++) {
+      var nodes = comp.trees[i], k = 0;
+      while (nodes[k].v === undefined) {
+        var nd = nodes[k];
+        k = Math.fround(x[nd.f]) < nd.t ? nd.l : nd.r; // x < t goes left (float32 compare, like xgboost)
+      }
+      margin += nodes[k].v;
+    }
+    return sigmoid(margin);
+  }
+
+  function componentProbabilities(f) {
+    var m = requireModel();
+    var out = {};
+    ['amount', 'behavior', 'context'].forEach(function (c) {
+      out[c] = predictComponent(m.components[c], m.features[c].map(function (n) { return f[n]; }));
+    });
+    return out;
+  }
+
+  /** Payment chain: inbound payments within 2 h and 25% of the amount, followed upstream (cycle-safe). */
+  function paymentChain(db, senderUpi, amount, at, excludeId) {
+    var g = requireModel().graph;
+    var windowMs = g.window_minutes * MIN;
+    var links = [];
+    var visited = {}; visited[senderUpi] = true;
+    var node = senderUpi, outAmt = amount, outAt = at;
+    while (links.length < g.max_hops - 1) {
+      var best = null, bestSim = -1;
+      for (var i = 0; i < db.payments.length; i++) {
+        var p = db.payments[i];
+        if (p.status !== 'COMPLETED' || p.to !== node || p.id === excludeId || visited[p.from]) continue;
+        if (p.createdAt > outAt || outAt - p.createdAt > windowMs) continue;
+        if (Math.abs(p.amount - outAmt) > g.amount_tolerance * outAmt) continue;
+        var sim = 1 - Math.abs(p.amount - outAmt) / Math.max(p.amount, outAmt);
+        if (sim > bestSim || (sim === bestSim && p.createdAt > best.createdAt)) { best = p; bestSim = sim; }
+      }
+      if (!best) break;
+      var gapMin = (outAt - best.createdAt) / MIN;
+      links.push({ paymentId: best.id, from: best.from, to: node, amount: best.amount, at: best.createdAt,
+        similarity: bestSim, gapMinutes: gapMin, level: bestSim >= 0.9 && gapMin <= 30 ? 'High' : 'Medium' });
+      visited[best.from] = true;
+      node = best.from; outAmt = best.amount; outAt = best.createdAt;
+    }
+    // hops = payments in the chain, including this one (a lone payment is not a chain)
+    var hops = links.length ? Math.min(g.max_hops, links.length + 1) : 0;
+    var avgSim = links.length ? links.reduce(function (s, l) { return s + l.similarity; }, 0) / links.length : 0;
+    var score = g.hop_factor[hops] * (0.6 + 0.4 * avgSim);
+    return { hops: hops, links: links.reverse(), avgSimilarity: avgSim, score: hops ? score : 0 };
+  }
+
+  /** Indirect connection: BFS sender -> recipient over the last 90 days of completed payments. */
+  function indirectPath(db, fromUpi, toUpi, at, excludeId) {
+    var g = requireModel().graph;
+    var adj = {};
+    db.payments.forEach(function (p) {
+      if (p.status !== 'COMPLETED' || p.id === excludeId || p.createdAt > at || at - p.createdAt > g.indirect_days * DAY) return;
+      (adj[p.from] = adj[p.from] || {})[p.to] = true;
+    });
+    var parent = {}; parent[fromUpi] = null;
+    var frontier = [fromUpi];
+    for (var depth = 1; depth <= g.max_hops && frontier.length; depth++) {
+      var next = [];
+      for (var i = 0; i < frontier.length; i++) {
+        var outs = Object.keys(adj[frontier[i]] || {}).sort();
+        for (var j = 0; j < outs.length; j++) {
+          var n = outs[j];
+          if (n in parent) continue;
+          parent[n] = frontier[i];
+          if (n === toUpi) {
+            if (depth < 2) return null;
+            var path = [n];
+            while (parent[path[0]] !== null) path.unshift(parent[path[0]]);
+            return path;
+          }
+          next.push(n);
+        }
+      }
+      frontier = next;
+    }
+    return null;
+  }
+
+  function receiverRisk(db, r, senderUpi, at) {
+    var cfg = requireModel().receiver;
+    var score = 0, signals = [];
+    if (r.watchlist) { score = cfg.watchlist; signals.push('watchlist'); }
+    else {
+      if (!r.registered) { score += cfg.unregistered; signals.push('unregistered'); }
+      if (r.registered && r.createdAt !== null && at - r.createdAt < cfg.new_account_days * DAY) { score += cfg.new_account; signals.push('new_account'); }
+      var payers = {}, inflow = 0, outflow = 0;
+      db.payments.forEach(function (p) {
+        if (p.status !== 'COMPLETED' || p.createdAt > at || at - p.createdAt > DAY) return;
+        if (p.to === r.upi) { inflow += p.amount; if (p.from !== senderUpi) payers[p.from] = true; }
+        if (p.from === r.upi) outflow += p.amount;
+      });
+      if (Object.keys(payers).length >= cfg.many_payers_count) { score += cfg.many_payers; signals.push('many_payers'); }
+      if (r.type === 'user' && inflow > 0 && outflow >= cfg.pass_through_ratio * inflow) { score += cfg.pass_through; signals.push('pass_through'); }
+    }
+    score = Math.min(1, score);
+    var level = score < cfg.levels.elevated ? 'Normal' : score < cfg.levels.high ? 'Elevated' : 'High';
+    var note = level === 'Normal' ? 'No unusual signals on the receiving account.'
+      : level === 'Elevated' ? 'Some signals on the receiving account call for care.'
+        : 'The receiving account shows strong risk signals.';
+    return { score: score, level: level, note: note, signals: signals };
+  }
+
+  function bandFor(score) {
+    if (score >= 85) return 'VERY_HIGH';
+    if (score >= 60) return 'HIGH';
+    if (score >= 30) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  var REASON_TEXT = {
+    AMOUNT_ABOVE_USUAL: 'This amount is much higher than what you usually send.',
+    NEW_RECIPIENT: 'You haven’t paid this recipient before.',
+    INDIRECT_CONNECTION: 'You’re connected to this recipient only indirectly, through accounts you have paid.',
+    HIGH_RECENT_VELOCITY: 'You’ve sent several payments or a lot of money in a short time.',
+    UNUSUAL_TIME: 'This is an unusual time of day for you to pay.',
+    DEVICE_OR_LOCATION_CHANGE: 'This payment comes from a new device or location.',
+    NEW_ACCOUNT: 'Your account is new, so there is little history to compare with.',
+    POSSIBLE_PASS_THROUGH_PATTERN: 'Money you received recently seems to be moving on in a similar amount (a possible pass-through).',
+    RECEIVER_SIDE_RISK: 'The receiving account shows risk signals.'
+  };
+
+  function reasonsFor(f, p, graph, receiver) {
+    var out = [];
+    function add(code, strength) { out.push({ code: code, text: REASON_TEXT[code], strength: strength }); }
+    if (f.amount_ratio >= 2.5 || f.share_of_balance >= 0.3) add('AMOUNT_ABOVE_USUAL', p.amount);
+    if (f.is_new_recipient) add('NEW_RECIPIENT', p.behavior);
+    if (f.indirect_connection) add('INDIRECT_CONNECTION', p.behavior * 0.9);
+    if (f.tx_count_30m >= 2 || f.value_24h_ratio >= 3) add('HIGH_RECENT_VELOCITY', p.behavior * 0.95);
+    if (f.is_night || f.hour_deviation >= 4) add('UNUSUAL_TIME', p.context);
+    if (f.new_device) add('DEVICE_OR_LOCATION_CHANGE', p.context * 0.95);
+    if (f.account_age_days < 30) add('NEW_ACCOUNT', p.context * 0.9);
+    if (graph.hops >= 2) add('POSSIBLE_PASS_THROUGH_PATTERN', graph.score + 0.5);
+    if (receiver.score >= 0.3) add('RECEIVER_SIDE_RISK', receiver.score + 0.5);
+    out.sort(function (a, b) { return b.strength - a.strength; });
+    return out.map(function (r) { return { code: r.code, text: r.text }; });
+  }
+
+  /**
+   * Assess a payment. ctx: { sender, recipient, amount, at, controls, excludeId }.
+   * Throws if the model is missing: there is no rule-based fallback.
+   */
+  function assess(db, ctx) {
+    var m = requireModel();
+    var at = ctx.at === undefined ? now() : ctx.at;
+    var c = { sender: ctx.sender, recipient: ctx.recipient, amount: ctx.amount, at: at, controls: ctx.controls || {}, excludeId: ctx.excludeId };
+    var built = buildFeatures(db, c);
+    var f = built.features;
+    var p = componentProbabilities(f);
+    var graph = paymentChain(db, ctx.sender.upi, ctx.amount, at, ctx.excludeId);
+    var receiver = receiverRisk(db, ctx.recipient, ctx.sender.upi, at);
+    var x = [p.amount, p.behavior, p.context, graph.score, receiver.score];
+    var raw = m.stacker.intercept;
+    for (var i = 0; i < 5; i++) raw += m.stacker.weights[i] * x[i];
+    var score = Math.round(clip(raw, 0, 1) * 100);
+    return {
+      score: score,
+      band: bandFor(score),
+      components: p,
+      graph: graph,
+      indirect: { found: !!built.indirectPath, path: built.indirectPath || [] },
+      receiver: receiver,
+      reasons: reasonsFor(f, p, graph, receiver),
+      features: f,
+      model: { version: m.version, engine: m.engine, synthetic: true },
+      assessedAt: at
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Model-based limits
+  // ------------------------------------------------------------------
+  var LIMIT_THRESHOLDS = [30, 60, 85];
+
+  /**
+   * Probe the engine with increasing amounts (geometric grid, then binary search on a
+   * ₹100 grid) and find, for each threshold, the largest ₹100 multiple that still
+   * scores below it. null means the threshold is not reached below the demo ceiling.
+   */
+  function computeLimits(db, ctx) {
+    var cache = {};
+    function scoreAt(units) {
+      if (!(units in cache)) cache[units] = assess(db, { sender: ctx.sender, recipient: ctx.recipient, amount: units * 100, at: ctx.at, controls: ctx.controls }).score;
+      return cache[units];
+    }
+    var top = DEMO_CEILING / 100;
+    var grid = [];
+    for (var u = 1; u < top; u = Math.max(u + 1, Math.ceil(u * 1.35))) grid.push(u);
+    grid.push(top);
+    var limits = {};
+    LIMIT_THRESHOLDS.forEach(function (T) {
+      var k = -1;
+      for (var i = 0; i < grid.length; i++) { if (scoreAt(grid[i]) >= T) { k = i; break; } }
+      if (k === -1) { limits[T] = null; return; }
+      if (k === 0) { limits[T] = 0; return; }
+      var lo = grid[k - 1], hi = grid[k]; // score(lo) < T <= score(hi)
+      while (hi - lo > 1) {
+        var mid = Math.floor((lo + hi) / 2);
+        if (scoreAt(mid) >= T) hi = mid; else lo = mid;
+      }
+      limits[T] = lo * 100;
+    });
+    if (ctx.recipient.watchlist) { limits[30] = 0; limits[60] = 0; limits[85] = 0; } // demo watchlist policy
+    var balance = Math.floor(ctx.sender.balance);
+    var blockAt = limits[85] === null ? Infinity : limits[85];
+    return {
+      noChecks: limits[30], verification: limits[60], strongWarning: limits[85],
+      ceiling: DEMO_CEILING, balance: balance,
+      maxAllowed: Math.max(0, Math.min(DEMO_CEILING, balance, blockAt)),
+      probes: Object.keys(cache).length
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // 6. Payments: state machine, provider, service
+  // ------------------------------------------------------------------
+  var TRANSITIONS = {
+    DRAFT: ['ASSESSING'],
+    ASSESSING: ['NEEDS_VERIFICATION', 'BLOCKED', 'PENDING', 'COMPLETED', 'FAILED'],
+    NEEDS_VERIFICATION: ['PENDING', 'COMPLETED', 'FAILED'],
+    PENDING: ['COMPLETED', 'FAILED'],
+    COMPLETED: ['REVERSED'],
+    BLOCKED: [], FAILED: [], REVERSED: []
+  };
+
+  function canTransition(from, to) { return !!TRANSITIONS[from] && TRANSITIONS[from].indexOf(to) !== -1; }
+
+  function transition(p, to, note) {
+    if (!canTransition(p.status, to)) throw new Error('Illegal payment transition ' + p.status + ' → ' + to);
+    p.status = to;
+    p.updatedAt = now();
+    p.timeline.push({ status: to, at: p.updatedAt, note: note || '' });
+    return p;
+  }
+
+  function simpleHash(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(16).toUpperCase().padStart(8, '0');
+  }
+
+  /**
+   * Simulated bank. Outcomes are deterministic: they come from the demo control the
+   * user chose (success, failure or pending). Settlement is idempotent.
+   */
+  function MockPaymentProvider(db) { this.db = db; this.callbacks = 0; }
+
+  MockPaymentProvider.prototype.settle = function (p) {
+    if (p.settled) return false; // idempotent: never debit twice
+    var sender = findUser(this.db, p.fromUserId);
+    sender.balance = Math.round((sender.balance - p.amount) * 100) / 100;
+    var receiver = findUserByUpi(this.db, p.to);
+    if (receiver) receiver.balance = Math.round((receiver.balance + p.amount) * 100) / 100;
+    p.settled = true;
+    return true;
+  };
+
+  MockPaymentProvider.prototype.submit = function (p) {
+    var outcome = (p.controls && p.controls.outcome) || 'success';
+    p.bankRef = 'SIM' + simpleHash(p.id + ':' + p.key);
+    var sender = findUser(this.db, p.fromUserId);
+    if (outcome === 'failure') { p.failureReason = 'The demo bank declined this payment (simulated failure).'; transition(p, 'FAILED', 'Demo bank: declined'); return p; }
+    if (sender.balance < p.amount) { p.failureReason = 'Not enough simulated balance.'; transition(p, 'FAILED', 'Demo bank: insufficient balance'); return p; }
+    if (outcome === 'pending') { transition(p, 'PENDING', 'Demo bank: awaiting confirmation'); return p; }
+    this.settle(p);
+    transition(p, 'COMPLETED', 'Demo bank: success');
+    return p;
+  };
+
+  /** Demo bank callback ("Check status"). A duplicate callback is a no-op. */
+  MockPaymentProvider.prototype.callback = function (p) {
+    this.callbacks++;
+    if (p.status !== 'PENDING') return { changed: false, duplicate: true, status: p.status };
+    var sender = findUser(this.db, p.fromUserId);
+    if (sender.balance < p.amount) { p.failureReason = 'Not enough simulated balance.'; transition(p, 'FAILED', 'Demo bank callback: insufficient balance'); return { changed: true, status: p.status }; }
+    this.settle(p);
+    transition(p, 'COMPLETED', 'Demo bank callback: success');
+    return { changed: true, duplicate: false, status: p.status };
+  };
+
+  MockPaymentProvider.prototype.reverse = function (p) {
+    transition(p, 'REVERSED', 'Demo reversal');
+    if (p.settled && !p.reversed) {
+      var sender = findUser(this.db, p.fromUserId);
+      sender.balance += p.amount;
+      var receiver = findUserByUpi(this.db, p.to);
+      if (receiver) receiver.balance -= p.amount;
+      p.reversed = true;
+    }
+    return p;
+  };
+
+  function newId(db) { db.seq += 1; return 'pay' + String(db.seq).padStart(5, '0') + simpleHash(String(now()) + db.seq).slice(0, 4); }
+
+  /** Create a payment. The same idempotency key always returns the same payment. */
+  function createPayment(db, req) {
+    if (req.key) {
+      for (var i = 0; i < db.payments.length; i++) if (db.payments[i].key === req.key) return db.payments[i];
+    }
+    var sender = findUser(db, req.senderId);
+    if (!sender) throw new Error('Unknown sender.');
+    var amount = Number(req.amount);
+    if (!(amount > 0) || Math.round(amount * 100) !== amount * 100) throw new Error('Enter a valid amount.');
+    if (amount > DEMO_CEILING) throw new Error('Above the demo ceiling.');
+    if (amount > sender.balance) throw new Error('Not enough simulated balance.');
+    var r = req.recipient;
+    var t = now();
+    var p = {
+      id: newId(db), key: req.key || ('auto-' + db.seq), fromUserId: sender.id, from: sender.upi, fromName: sender.name,
+      to: r.upi, toName: r.name, toType: r.type, amount: amount, note: String(req.note || '').slice(0, 80),
+      createdAt: t, updatedAt: t, status: 'DRAFT', timeline: [{ status: 'DRAFT', at: t, note: 'Payment created' }],
+      risk: null, controls: { newDevice: !!(req.controls && req.controls.newDevice), night: !!(req.controls && req.controls.night),
+        outcome: (req.controls && req.controls.outcome) || 'success' },
+      settled: false, verification: null, decision: null, seq: db.seq
+    };
+    db.payments.push(p);
+    return p;
+  }
+
+  function assessPayment(db, p) {
+    transition(p, 'ASSESSING', 'Risk check started');
+    var sender = findUser(db, p.fromUserId);
+    var r = resolveKnown(db, p.to);
+    p.risk = assess(db, { sender: sender, recipient: r, amount: p.amount, at: p.createdAt, controls: p.controls, excludeId: p.id });
+    if (p.risk.band === 'VERY_HIGH') { p.failureReason = 'Blocked by the risk check.'; transition(p, 'BLOCKED', 'Risk ' + p.risk.score + ' (VERY_HIGH): blocked'); }
+    else if (p.risk.band === 'MEDIUM' || p.risk.band === 'HIGH') transition(p, 'NEEDS_VERIFICATION', 'Risk ' + p.risk.score + ' (' + p.risk.band + '): demo verification needed');
+    else p.timeline.push({ status: 'ASSESSING', at: now(), note: 'Risk ' + p.risk.score + ' (LOW)' });
+    return p;
+  }
+
+  function rejectPayment(p, why) {
+    if (p.status === 'BLOCKED' || p.status === 'FAILED') return p;
+    p.decision = 'REJECTED';
+    p.failureReason = why || 'You rejected this payment.';
+    transition(p, 'FAILED', why || 'Rejected by you');
+    return p;
+  }
+
+  function approvePayment(p) {
+    if (p.status !== 'ASSESSING' && p.status !== 'NEEDS_VERIFICATION') throw new Error('This payment can’t be approved now.');
+    p.decision = 'OK';
+    p.timeline.push({ status: p.status, at: now(), note: 'You chose OK' });
+    return p;
+  }
+
+  function verifyPayment(p) {
+    if (p.status !== 'NEEDS_VERIFICATION') throw new Error('No verification needed.');
+    p.verification = { at: now() };
+    p.timeline.push({ status: p.status, at: now(), note: 'Demo verification passed' });
+    return p;
+  }
+
+  /** Authorise with the demo PIN (compared in memory, never stored) and submit to the demo bank. */
+  function authorizePayment(db, p, pin) {
+    if (p.decision !== 'OK') throw new Error('Choose OK first.');
+    if (p.status === 'NEEDS_VERIFICATION' && !p.verification) throw new Error('Demo verification is needed first.');
+    if (p.status !== 'ASSESSING' && p.status !== 'NEEDS_VERIFICATION') throw new Error('This payment can’t be authorised now.');
+    if (String(pin) !== DEMO_PIN) return { ok: false };
+    new MockPaymentProvider(db).submit(p);
+    return { ok: true, payment: p };
+  }
+
+  // ------------------------------------------------------------------
+  // 7. Accounts, sessions, lockout
+  // ------------------------------------------------------------------
+  function toHex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
+  function fromHex(h) { var a = new Uint8Array(h.length / 2); for (var i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; }
+
+  async function hashPassword(password, saltHex, iterations) {
+    var subtle = root.crypto && root.crypto.subtle;
+    if (!subtle) throw new Error('This browser does not support Web Crypto, which Yogii needs for passwords.');
+    var salt = saltHex ? fromHex(saltHex) : root.crypto.getRandomValues(new Uint8Array(16));
+    var key = await subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var bits = await subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: iterations }, key, 256);
+    return { salt: toHex(salt), hash: toHex(bits), iterations: iterations };
+  }
+
+  function timingSafeEqual(a, b) {
+    if (a.length !== b.length) return false;
+    var r = 0;
+    for (var i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return r === 0;
+  }
+
+  function validateRegistration(form, db) {
+    var errors = {};
+    var name = String(form.name || '').trim();
+    var email = String(form.email || '').trim().toLowerCase();
+    var phone = String(form.phone || '').trim();
+    var pw = String(form.password || '');
+    if (name.length < 2) errors.name = 'Enter your full name.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) errors.email = 'Enter a valid email address.';
+    else if (findUserByEmail(db, email)) errors.email = 'This email can’t be used. Try another.';
+    if (!/^[6-9][0-9]{9}$/.test(phone)) errors.phone = 'Enter a 10-digit Indian mobile number starting with 6, 7, 8 or 9.';
+    else if (findUserByPhone(db, phone)) errors.phone = 'This mobile number can’t be used. Try another.';
+    if (pw.length < 10 || !/[A-Z]/.test(pw) || !/[a-z]/.test(pw) || !/[0-9]/.test(pw)) errors.password = 'Use 10 or more characters with an uppercase letter, a lowercase letter and a number.';
+    if (form.confirm !== undefined && form.confirm !== pw) errors.confirm = 'Passwords don’t match.';
+    return errors;
+  }
+
+  function makeUpi(db, name) {
+    var base = String(name).trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+    var upi = base + '@yogii', n = 1;
+    while (findUserByUpi(db, upi) || directoryEntry(upi)) { n += 1; upi = base + n + '@yogii'; }
+    return upi;
+  }
+
+  async function registerUser(db, form, options) {
+    var errors = validateRegistration(form, db);
+    if (Object.keys(errors).length) return { ok: false, errors: errors };
+    var cred = await hashPassword(String(form.password), null, (options && options.iterations) || PBKDF2_ITERATIONS);
+    var name = String(form.name).trim();
+    var u = { id: 'u_' + simpleHash(form.email + now()).toLowerCase() + db.users.length, name: name, email: String(form.email).trim().toLowerCase(),
+      upi: makeUpi(db, name), phone: String(form.phone).trim(), balance: START_BALANCE, createdAt: now(),
+      salt: cred.salt, hash: cred.hash, iterations: cred.iterations, seeded: false, lastSignIn: null };
+    db.users.push(u);
+    return { ok: true, user: u };
+  }
+
+  var GENERIC_SIGNIN_ERROR = 'Email or password is incorrect.';
+
+  async function signIn(db, email, password) {
+    var key = String(email || '').trim().toLowerCase();
+    var lock = db.lockouts[key] || { fails: 0, until: 0 };
+    if (lock.until && now() < lock.until) {
+      return { ok: false, locked: true, error: 'Too many attempts. Try again in ' + Math.ceil((lock.until - now()) / 1000) + ' seconds.' };
+    }
+    var u = findUserByEmail(db, key);
+    var ok = false;
+    if (u) {
+      var cred = await hashPassword(String(password || ''), u.salt, u.iterations);
+      ok = timingSafeEqual(cred.hash, u.hash);
+    } else {
+      await hashPassword(String(password || ''), '00000000000000000000000000000000', 1000); // similar work for unknown emails
+    }
+    if (!ok) {
+      lock.fails = (lock.until && now() >= lock.until ? 0 : lock.fails) + 1;
+      lock.until = 0;
+      if (lock.fails >= MAX_FAILS) { lock.until = now() + LOCK_MS; lock.fails = 0; }
+      db.lockouts[key] = lock;
+      return { ok: false, locked: !!lock.until, error: lock.until ? 'Too many attempts. Try again in 60 seconds.' : GENERIC_SIGNIN_ERROR };
+    }
+    delete db.lockouts[key];
+    u.previousSignIn = u.lastSignIn;
+    u.lastSignIn = now();
+    db.session = { userId: u.id, expiresAt: now() + SESSION_MS };
+    return { ok: true, user: u };
+  }
+
+  function currentUser(db) {
+    if (!db.session) return null;
+    if (now() > db.session.expiresAt) { db.session = null; return null; }
+    return findUser(db, db.session.userId);
+  }
+
+  // ------------------------------------------------------------------
+  // Formatting helpers
+  // ------------------------------------------------------------------
+  var inrFmt = null;
+  function inr(n, decimals) {
+    try {
+      if (!inrFmt) inrFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+      return '₹' + inrFmt.format(decimals === 0 ? Math.floor(n) : n);
+    } catch (e) { return '₹' + n; }
+  }
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtTime(t) {
+    try { return new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return new Date(t).toISOString(); }
+  }
+  function bandLabel(b) { return { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', VERY_HIGH: 'Very high' }[b] || b; }
+  function statusLabel(p) {
+    if (p.status === 'FAILED' && p.decision === 'REJECTED') return 'Rejected';
+    if (p.status === 'FAILED' && p.cancelled) return 'Cancelled';
+    return { DRAFT: 'Draft', ASSESSING: 'Awaiting your decision', NEEDS_VERIFICATION: 'Needs verification', BLOCKED: 'Blocked',
+      PENDING: 'Pending', COMPLETED: 'Completed', FAILED: 'Failed', REVERSED: 'Reversed' }[p.status] || p.status;
+  }
+  function levelOf(prob) { return prob < 0.3 ? 'Low' : prob < 0.6 ? 'Moderate' : 'High'; }
+
+  // ------------------------------------------------------------------
+  // Test hook
+  // ------------------------------------------------------------------
+  var api = {
+    FEATURES: FEATURES, TRANSITIONS: TRANSITIONS, DEMO_CEILING: DEMO_CEILING, START_BALANCE: START_BALANCE, DIRECTORY: DIRECTORY,
+    SEED_USERS: SEED_USERS, SEED_PAYMENTS: SEED_PAYMENTS,
+    setNow: function (fn) { nowFn = fn; }, now: now,
+    setModel: setModel, validateModel: validateModel, getModelError: function () { return MODEL_ERROR; },
+    emptyDb: emptyDb, seedDb: seedDb, resolveRecipient: resolveRecipient, resolveKnown: resolveKnown,
+    findUser: findUser, findUserByUpi: findUserByUpi, findPayment: findPayment,
+    buildFeatures: buildFeatures, predictComponent: predictComponent, paymentChain: paymentChain, indirectPath: indirectPath,
+    receiverRisk: receiverRisk, circularMeanHour: circularMeanHour, bandFor: bandFor, assess: assess, computeLimits: computeLimits,
+    transition: transition, canTransition: canTransition, MockPaymentProvider: MockPaymentProvider,
+    createPayment: createPayment, assessPayment: assessPayment, rejectPayment: rejectPayment, approvePayment: approvePayment,
+    verifyPayment: verifyPayment, authorizePayment: authorizePayment,
+    hashPassword: hashPassword, validateRegistration: validateRegistration, registerUser: registerUser, signIn: signIn, currentUser: currentUser
+  };
+
+  if (TEST) {
+    setModel(TEST.model);
+    TEST.api = api;
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // 8. UI
+  // ------------------------------------------------------------------
+  var doc = root.document;
+  var db = null;
+  var ui = { route: 'home', params: {}, flow: null, filters: { q: '', status: 'all', band: 'all' }, signinError: '', notice: '' };
+
+  function save() { Storage.set(STORAGE_KEY, db); }
+
+  async function loadDb() {
+    var stored = Storage.get(STORAGE_KEY);
+    if (stored && stored.version === DATA_VERSION && Array.isArray(stored.users) && Array.isArray(stored.payments)) return stored;
+    var fresh = await seedDb();
+    Storage.set(STORAGE_KEY, fresh);
+    return fresh;
+  }
+
+  function readInlineModel() {
+    var el = doc.getElementById('yogii-model');
+    if (el && el.textContent.trim()) return Promise.resolve(JSON.parse(el.textContent));
+    var src = el && el.getAttribute('data-src');
+    if (!src || !root.fetch) return Promise.reject(new Error('Risk model file is missing.'));
+    return root.fetch(src).then(function (r) { if (!r.ok) throw new Error('Risk model file is missing (' + r.status + ').'); return r.json(); });
+  }
+
+  function announce(msg) {
+    var live = doc.getElementById('live');
+    if (!live) return;
+    live.textContent = '';
+    setTimeout(function () { live.textContent = msg; }, 30);
+  }
+
+  function applyTheme() {
+    var t = (db && db.prefs && db.prefs.theme) || 'system';
+    if (t === 'system') doc.documentElement.removeAttribute('data-theme');
+    else doc.documentElement.setAttribute('data-theme', t);
+  }
+
+  // ---------------- icons (inline SVG, decorative) ----------------
+  var ICONS = {
+    home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    send: '<path d="M4 12h14M13 6l6 6-6 6"/>',
+    history: '<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4M12 8v4l3 2"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/>',
+    back: '<path d="M15 18l-6-6 6-6"/>',
+    check: '<path d="M5 12l5 5 9-11"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    store: '<path d="M4 9l1-5h14l1 5M4 9v11h16V9M4 9h16M9 20v-6h6v6"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+    alert: '<path d="M12 3l10 18H2zM12 10v5M12 18v.5"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  function icon(name, cls) {
+    return '<svg class="icon ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + '</svg>';
+  }
+
+  function sim() { return '<span class="sim-tag">Simulated</span>'; }
+
+  function bandChip(band) { return '<span class="chip band-' + band.toLowerCase() + '">' + esc(bandLabel(band)) + '</span>'; }
+  function statusChip(p) { return '<span class="chip status-' + p.status.toLowerCase() + (p.decision === 'REJECTED' ? ' status-rejected' : '') + '">' + esc(statusLabel(p)) + '</span>'; }
+
+  // ---------------- shell ----------------
+  function shell(content, opts) {
+    var user = currentUser(db);
+    var nav = '';
+    if (user) {
+      var items = [['home', 'Home'], ['send', 'Send'], ['history', 'History'], ['settings', 'Settings']];
+      var active = ui.route === 'payment' ? 'history' : ui.route;
+      nav = '<nav class="nav" aria-label="Main">' + items.map(function (it) {
+        return '<a href="#/' + it[0] + '" class="nav-item' + (active === it[0] ? ' active' : '') + '"' + (active === it[0] ? ' aria-current="page"' : '') + '>' + icon(it[0]) + '<span>' + it[1] + '</span></a>';
+      }).join('') + '</nav>';
+    }
+    return '<div class="sim-banner" role="note">' + icon('shield') + '<span><strong>Simulation.</strong> No real money moves. Not connected to UPI, NPCI or any bank.</span></div>' +
+      '<header class="topbar"><a class="brand" href="#/home" aria-label="Yogii home"><span class="logo" aria-hidden="true">Y</span><span>Yogii</span><span class="brand-sub">Risk Web</span></a>' +
+      (user ? '<div class="topnav">' + nav + '</div>' : '') + '</header>' +
+      '<main id="main" class="main' + (opts && opts.narrow ? ' narrow' : '') + '" tabindex="-1">' + content + '</main>' +
+      (user ? '<div class="bottomnav">' + nav + '</div>' : '');
+  }
+
+  function render() {
+    var app = doc.getElementById('app');
+    if (!MODEL) {
+      app.innerHTML = '<div class="sim-banner" role="note">' + icon('shield') + '<span><strong>Simulation.</strong> No real money moves.</span></div>' +
+        '<main id="main" class="main narrow" tabindex="-1"><section class="card error-card" role="alert"><h1>Risk model unavailable</h1>' +
+        '<p>Yogii can’t check payments because its risk model could not be loaded: <strong>' + esc(MODEL_ERROR || 'unknown error') + '</strong></p>' +
+        '<p>Payments are disabled. Yogii never falls back to simpler rules. Rebuild the app with <code>python scripts/build.py</code>, or serve the folder over HTTP so <code>models/yogii_risk_model.json</code> can load.</p></section></main>';
+      return;
+    }
+    var user = currentUser(db);
+    if (!user && ui.route !== 'register') ui.route = 'signin';
+    if (user && (ui.route === 'signin' || ui.route === 'register')) ui.route = 'home';
+    var html;
+    switch (ui.route) {
+      case 'signin': html = shell(viewSignIn(), { narrow: true }); break;
+      case 'register': html = shell(viewRegister(), { narrow: true }); break;
+      case 'send': html = shell(viewSend(user)); break;
+      case 'history': html = shell(viewHistory(user)); break;
+      case 'payment': html = shell(viewPayment(user, ui.params.id)); break;
+      case 'settings': html = shell(viewSettings(user)); break;
+      default: html = shell(viewHome(user));
+    }
+    app.innerHTML = html;
+    var focusEl = app.querySelector('[data-autofocus]') || app.querySelector('main h1');
+    if (focusEl) {
+      if (!focusEl.hasAttribute('tabindex') && !/INPUT|BUTTON|SELECT|TEXTAREA/.test(focusEl.tagName)) focusEl.setAttribute('tabindex', '-1');
+      try { focusEl.focus({ preventScroll: false }); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function go(route, params) {
+    ui.route = route; ui.params = params || {};
+    var hash = '#/' + route + (params && params.id ? '/' + params.id : '');
+    if (root.location.hash !== hash) { ui.skipHash = true; root.location.hash = hash; }
+    render();
+    try { root.scrollTo(0, 0); } catch (e) { /* ignore */ }
+  }
+
+  function onHash() {
+    if (ui.skipHash) { ui.skipHash = false; return; }
+    var parts = (root.location.hash || '').replace(/^#\/?/, '').split('/');
+    var r = parts[0] || 'home';
+    if (['home', 'send', 'history', 'payment', 'settings', 'signin', 'register'].indexOf(r) === -1) r = 'home';
+    if (r === 'send' && ui.route !== 'send') ui.flow = null;
+    ui.route = r; ui.params = r === 'payment' ? { id: parts[1] } : {};
+    render();
+  }
+
+  // ---------------- auth views ----------------
+  function field(id, label, type, opts) {
+    opts = opts || {};
+    var err = opts.error ? '<p class="field-error" id="' + id + '-err">' + esc(opts.error) + '</p>' : '';
+    var hint = opts.hint ? '<p class="hint" id="' + id + '-hint">' + esc(opts.hint) + '</p>' : '';
+    var describedBy = [opts.hint ? id + '-hint' : '', opts.error ? id + '-err' : ''].filter(Boolean).join(' ');
+    return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>' +
+      '<input id="' + id + '" name="' + (opts.name || id) + '" type="' + type + '"' + (opts.value !== undefined ? ' value="' + esc(opts.value) + '"' : '') +
+      (opts.autocomplete ? ' autocomplete="' + opts.autocomplete + '"' : '') + (opts.inputmode ? ' inputmode="' + opts.inputmode + '"' : '') +
+      (opts.required !== false ? ' required' : '') + (opts.autofocus ? ' data-autofocus' : '') + (opts.maxlength ? ' maxlength="' + opts.maxlength + '"' : '') +
+      (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') +
+      (describedBy ? ' aria-describedby="' + describedBy + '"' : '') + (opts.error ? ' aria-invalid="true"' : '') + '>' + hint + err + '</div>';
+  }
+
+  function viewSignIn() {
+    return '<section class="auth">' +
+      '<div class="auth-head"><h1>Sign in</h1><p class="muted">Simulated payments with a prototype risk check.</p></div>' +
+      '<form class="card form" data-form="signin" novalidate>' +
+      field('si-email', 'Email', 'email', { name: 'email', autocomplete: 'username', autofocus: true, value: ui.lastEmail || '' }) +
+      field('si-password', 'Password', 'password', { name: 'password', autocomplete: 'current-password' }) +
+      '<p class="form-error" role="alert" id="signin-error">' + esc(ui.signinError) + '</p>' +
+      '<button class="btn primary block" type="submit">Sign in</button>' +
+      '<p class="center muted small">New here? <a href="#/register">Create a demo account</a></p></form>' +
+      '<aside class="card demo-accounts"><h2>Demo accounts (fictional)</h2><ul>' +
+      SEED_USERS.map(function (u) { return '<li><button type="button" class="linkish" data-action="fill-demo" data-email="' + u.email + '">' + esc(u.name) + '</button> <span class="muted mono">' + u.email + '</span></li>'; }).join('') +
+      '</ul><p class="muted small">Password for all: <span class="mono">Password123!</span></p></aside></section>';
+  }
+
+  function viewRegister() {
+    var e = ui.regErrors || {}, v = ui.regValues || {};
+    return '<section class="auth"><div class="auth-head"><h1>Create a demo account</h1><p class="muted">New accounts start with a simulated ₹3,00,000.</p></div>' +
+      '<form class="card form" data-form="register" novalidate>' +
+      field('rg-name', 'Full name', 'text', { name: 'name', autocomplete: 'name', autofocus: true, error: e.name, value: v.name }) +
+      field('rg-email', 'Email', 'email', { name: 'email', autocomplete: 'email', error: e.email, value: v.email }) +
+      field('rg-phone', 'Mobile number', 'tel', { name: 'phone', autocomplete: 'tel-national', inputmode: 'numeric', maxlength: 10, error: e.phone, value: v.phone, hint: '10 digits, for example 98765 43210.' }) +
+      field('rg-password', 'Password', 'password', { name: 'password', autocomplete: 'new-password', error: e.password, hint: 'At least 10 characters with uppercase, lowercase and a number.' }) +
+      field('rg-confirm', 'Confirm password', 'password', { name: 'confirm', autocomplete: 'new-password', error: e.confirm }) +
+      '<p class="form-error" role="alert">' + esc(ui.regError || '') + '</p>' +
+      '<button class="btn primary block" type="submit">Create account</button>' +
+      '<p class="center muted small">Have an account? <a href="#/signin">Sign in</a></p></form></section>';
+  }
+
+  // ---------------- home ----------------
+  function userPayments(user) {
+    return db.payments.filter(function (p) { return p.fromUserId === user.id || (p.to === user.upi && p.status === 'COMPLETED'); })
+      .sort(function (a, b) { return b.createdAt - a.createdAt || b.seq - a.seq; });
+  }
+
+  function activityRow(p, user) {
+    var incoming = p.to === user.upi && p.fromUserId !== user.id;
+    var who = incoming ? p.fromName : p.toName;
+    var sign = incoming ? '+' : (p.status === 'COMPLETED' ? '−' : '');
+    return '<li><a class="row" href="#/payment/' + p.id + '">' +
+      '<span class="avatar ' + (p.toType === 'merchant' && !incoming ? 'merchant' : '') + '" aria-hidden="true">' + esc((who || '?').charAt(0).toUpperCase()) + '</span>' +
+      '<span class="row-main"><span class="row-title">' + esc(who) + '</span><span class="row-sub">' + (incoming ? 'Received · ' : '') + esc(fmtTime(p.createdAt)) + '</span></span>' +
+      '<span class="row-end"><span class="amount ' + (incoming ? 'in' : '') + '">' + sign + esc(inr(p.amount)) + '</span>' +
+      (incoming ? '<span class="chip status-completed">Received</span>' : statusChip(p)) + '</span></a></li>';
+  }
+
+  var SCENARIOS = [
+    { title: 'Everyday payment', text: 'Pay rahul@upi ₹500: familiar recipient, low risk.', to: 'rahul@upi', amount: 500, who: 'yogesh' },
+    { title: 'Unusual purchase', text: 'Pay techgadgets@merchant ₹24,500: high risk, needs verification.', to: 'techgadgets@merchant', amount: 24500, who: 'yogesh' },
+    { title: 'Watchlisted receiver', text: 'Try crypto_drain@unknown: blocked, limit ₹0.', to: 'crypto_drain@unknown', amount: 1000, who: 'any' },
+    { title: 'Payment chain, step 1', text: 'As Yogesh, pay visrojit@yogii ₹10,000.', to: 'visrojit@yogii', amount: 10000, who: 'yogesh' },
+    { title: 'Payment chain, step 2', text: 'Sign in as Visrojit and pay dinesh@yogii ₹9,800: a 2-hop chain.', to: 'dinesh@yogii', amount: 9800, who: 'visrojit' },
+    { title: 'Payment chain, step 3', text: 'Sign in as Dinesh and pay rahul@upi ₹9,500: a 3-hop chain, blocked.', to: 'rahul@upi', amount: 9500, who: 'dinesh' },
+    { title: 'Indirect connection', text: 'Then, as Yogesh, pay dinesh@yogii to see the indirect path.', to: 'dinesh@yogii', amount: 2000, who: 'yogesh' }
+  ];
+
+  function viewHome(user) {
+    var list = userPayments(user);
+    var recent = list.slice(0, 5);
+    var mine = db.payments.filter(function (p) { return p.fromUserId === user.id && !p.seeded; });
+    var blocked = mine.filter(function (p) { return p.status === 'BLOCKED'; }).length;
+    var verified = mine.filter(function (p) { return p.verification; }).length;
+    var rejected = mine.filter(function (p) { return p.decision === 'REJECTED'; }).length;
+    var hidden = db.prefs.hideBalance;
+    var handle = user.upi.split('@')[0];
+    var hints = SCENARIOS.filter(function (s) { return s.who === 'any' || s.who === handle || !user.seeded; });
+    return '<h1 class="greeting">Hello, ' + esc(user.name.split(' ')[0]) + '</h1>' +
+      '<div class="grid-home">' +
+      '<section class="card balance-card" aria-labelledby="bal-h"><div class="balance-top"><h2 id="bal-h" class="label">Simulated balance</h2><span class="stamp" aria-hidden="true">SIMULATED</span></div>' +
+      '<p class="balance" aria-live="polite">' + (hidden ? '<span aria-label="Balance hidden">₹ ••••••</span>' : esc(inr(user.balance))) + '</p>' +
+      '<p class="muted small mono">' + esc(user.upi) + '</p>' +
+      '<div class="actions"><a class="btn primary" href="#/send">' + icon('send') + 'Send money</a>' +
+      '<button type="button" class="btn ghost" data-action="toggle-balance" aria-pressed="' + (hidden ? 'true' : 'false') + '">' + icon(hidden ? 'eye' : 'eyeOff') + (hidden ? 'Show balance' : 'Hide balance') + '</button></div></section>' +
+      '<section class="card" aria-labelledby="sec-h"><h2 id="sec-h">Security summary</h2><ul class="facts">' +
+      '<li><span>Last sign-in</span><strong>' + esc(user.previousSignIn ? fmtTime(user.previousSignIn) : 'First sign-in') + '</strong></li>' +
+      '<li><span>Payments blocked</span><strong>' + blocked + '</strong></li>' +
+      '<li><span>Payments you rejected</span><strong>' + rejected + '</strong></li>' +
+      '<li><span>Demo verifications passed</span><strong>' + verified + '</strong></li>' +
+      '<li><span>Session ends</span><strong>' + esc(fmtTime(db.session.expiresAt)) + '</strong></li></ul>' +
+      '<p class="muted small">Every payment gets a risk check before you enter the demo PIN.</p></section>' +
+      '<section class="card span-2" aria-labelledby="rec-h"><div class="card-head"><h2 id="rec-h">Recent activity</h2><a href="#/history" class="small">See all</a></div>' +
+      (recent.length ? '<ul class="rows">' + recent.map(function (p) { return activityRow(p, user); }).join('') + '</ul>' : '<p class="muted">No payments yet.</p>') + '</section>' +
+      '<section class="card span-2" aria-labelledby="scn-h"><h2 id="scn-h">Try a demo scenario</h2><p class="muted small">Fictional people and synthetic risk data. Tap one to pre-fill the payment.</p><ul class="scenarios">' +
+      hints.map(function (s) {
+        return '<li><button type="button" class="scenario" data-action="scenario" data-to="' + esc(s.to) + '" data-amount="' + s.amount + '"><strong>' + esc(s.title) + '</strong><span>' + esc(s.text) + '</span></button></li>';
+      }).join('') + '</ul></section></div>';
+  }
+
+  // ---------------- send flow ----------------
+  function newFlow() { return { step: 'recipient', input: '', recipient: null, amount: '', controls: { newDevice: false, night: false, outcome: 'success' }, error: '', paymentId: null, key: null }; }
+
+  function flowPayment() { return ui.flow && ui.flow.paymentId ? findPayment(db, ui.flow.paymentId) : null; }
+
+  function backLink(step, label) { return '<button type="button" class="btn ghost back" data-action="flow-back" data-step="' + step + '">' + icon('back') + (label || 'Back') + '</button>'; }
+
+  function stepper(active) {
+    var steps = ['Recipient', 'Amount', 'Risk check', 'Authorise', 'Result'];
+    return '<ol class="stepper" aria-label="Payment steps">' + steps.map(function (s, i) {
+      return '<li class="' + (i < active ? 'done' : i === active ? 'current' : '') + '"' + (i === active ? ' aria-current="step"' : '') + '><span>' + s + '</span></li>';
+    }).join('') + '</ol>';
+  }
+
+  function viewSend(user) {
+    if (!ui.flow) ui.flow = newFlow();
+    var f = ui.flow;
+    switch (f.step) {
+      case 'confirm': return viewConfirmRecipient(user);
+      case 'amount': return viewAmount(user);
+      case 'risk': return viewRisk(user);
+      case 'verify': return viewVerify(user);
+      case 'pin': return viewPin(user);
+      case 'processing': return '<section class="card center processing" aria-busy="true"><div class="spinner" aria-hidden="true"></div><h1>Processing</h1><p class="muted">Sending to the demo bank… ' + sim() + '</p></section>';
+      case 'result': return viewResult(user);
+      default: return viewRecipient(user);
+    }
+  }
+
+  function viewRecipient(user) {
+    var f = ui.flow;
+    var saved = {};
+    db.payments.forEach(function (p) { if (p.fromUserId === user.id && p.status === 'COMPLETED' && p.toType !== 'merchant') saved[p.to] = p.toName; });
+    db.users.forEach(function (u) { if (u.id !== user.id) saved[u.upi] = u.name; });
+    var people = Object.keys(saved).sort();
+    var merchants = DIRECTORY.filter(function (d) { return d.type === 'merchant'; });
+    return stepper(0) + '<h1>Send money</h1>' +
+      '<form class="card form" data-form="recipient" novalidate>' +
+      field('to-input', 'UPI ID or mobile number', 'text', { name: 'to', autofocus: true, value: f.input, error: f.error, autocomplete: 'off', placeholder: 'name@bank or 98765 43210', hint: 'Simulated: nothing is sent to a real UPI app.' }) +
+      '<button class="btn primary block" type="submit">Continue</button></form>' +
+      '<div class="grid-2"><section class="card"><h2>Saved people</h2><ul class="pick">' +
+      people.map(function (upi) { return '<li><button type="button" class="pick-item" data-action="pick" data-to="' + esc(upi) + '"><span class="avatar" aria-hidden="true">' + esc(saved[upi].charAt(0)) + '</span><span><strong>' + esc(saved[upi]) + '</strong><span class="muted mono small">' + esc(upi) + '</span></span></button></li>'; }).join('') +
+      '</ul></section><section class="card"><h2>Merchants</h2><ul class="pick">' +
+      merchants.map(function (m) { return '<li><button type="button" class="pick-item" data-action="pick" data-to="' + esc(m.upi) + '"><span class="avatar merchant" aria-hidden="true">' + icon('store') + '</span><span><strong>' + esc(m.name) + '</strong><span class="muted mono small">' + esc(m.upi) + '</span></span></button></li>'; }).join('') +
+      '</ul></section></div>';
+  }
+
+  function viewConfirmRecipient(user) {
+    var r = ui.flow.recipient;
+    var rr = receiverRisk(db, r, user.upi, now());
+    var typeLabel = { user: 'Yogii account', merchant: 'Merchant', contact: 'UPI contact (demo directory)', unknown: 'Unverified account', unregistered: 'Not in the Yogii directory' }[r.type];
+    return stepper(0) + backLink('recipient') + '<h1>Confirm recipient</h1>' +
+      '<section class="card recipient-card"><span class="avatar lg ' + (r.type === 'merchant' ? 'merchant' : '') + '" aria-hidden="true">' + esc(r.name.charAt(0).toUpperCase()) + '</span>' +
+      '<div><p class="recipient-name">' + esc(r.name) + '</p><p class="mono muted">' + esc(r.upi) + '</p><p class="small muted">' + esc(typeLabel) + '</p></div></section>' +
+      '<section class="card"><h2>Receiver check</h2><p>' + levelPill(rr.level) + ' ' + esc(rr.note) + '</p>' +
+      '<p class="muted small">For privacy you only see a level, never the receiver’s history or balance.</p></section>' +
+      '<button type="button" class="btn primary block" data-action="confirm-recipient" data-autofocus>This is the right person</button>';
+  }
+
+  function levelPill(level) { return '<span class="pill level-' + level.toLowerCase() + '">' + esc(level) + '</span>'; }
+
+  function currentLimits(user) {
+    var f = ui.flow;
+    var key = f.recipient.upi + '|' + f.controls.newDevice + '|' + f.controls.night + '|' + user.balance + '|' + db.payments.length;
+    if (!f.limits || f.limitsKey !== key) { f.limits = computeLimits(db, { sender: user, recipient: f.recipient, controls: f.controls, at: now() }); f.limitsKey = key; }
+    return f.limits;
+  }
+
+  function limitText(v, prevText) {
+    if (v === null) return 'Up to the demo ceiling';
+    if (v === 0) return prevText || 'Not available for this recipient';
+    return 'Up to ' + inr(v);
+  }
+
+  function viewAmount(user) {
+    var f = ui.flow, L = currentLimits(user), c = f.controls;
+    var rows = [
+      ['No extra checks', L.noChecks, 'Low risk: OK, then the demo PIN.'],
+      ['With demo verification', L.verification, 'Medium risk: a short confirmation before the PIN.'],
+      ['With a strong warning', L.strongWarning, 'High risk: a strong warning and verification.']
+    ];
+    var above = L.strongWarning === null ? 'No amount up to the demo ceiling is blocked by the model.' : L.strongWarning === 0 ? 'Every amount to this recipient is blocked.' : 'Above ' + inr(L.strongWarning) + ' the risk check blocks the payment.';
+    return stepper(1) + backLink('confirm') + '<h1>Enter amount</h1>' +
+      '<p class="muted">To <strong>' + esc(f.recipient.name) + '</strong> <span class="mono">' + esc(f.recipient.upi) + '</span></p>' +
+      '<div class="grid-amount"><form class="card form" data-form="amount" novalidate>' +
+      '<div class="field"><label for="amt">Amount (₹)</label><div class="amount-input"><span aria-hidden="true">₹</span><input id="amt" name="amount" type="text" inputmode="decimal" autocomplete="off" data-autofocus value="' + esc(f.amount) + '" aria-describedby="amt-hint' + (f.error ? ' amt-err' : '') + '"' + (f.error ? ' aria-invalid="true"' : '') + '></div>' +
+      '<p class="hint" id="amt-hint">You can send up to ' + esc(inr(L.maxAllowed)) + ' here (demo ceiling ' + esc(inr(DEMO_CEILING)) + ', your simulated balance and the model limit).</p>' +
+      (f.error ? '<p class="field-error" id="amt-err" role="alert">' + esc(f.error) + '</p>' : '') + '</div>' +
+      field('note', 'Note (optional)', 'text', { name: 'note', required: false, maxlength: 80, value: f.note || '' }) +
+      '<fieldset class="controls"><legend>Demo controls ' + sim() + '</legend>' +
+      '<label class="toggle"><input type="checkbox" data-control="newDevice"' + (c.newDevice ? ' checked' : '') + '> Pretend this is a new device or location</label>' +
+      '<label class="toggle"><input type="checkbox" data-control="night"' + (c.night ? ' checked' : '') + '> Pretend it’s 2 AM</label>' +
+      '<div class="field"><label for="outcome">Demo bank outcome</label><select id="outcome" data-control="outcome">' +
+      [['success', 'Success'], ['failure', 'Failure'], ['pending', 'Pending']].map(function (o) { return '<option value="' + o[0] + '"' + (c.outcome === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
+      '</select></div></fieldset>' +
+      '<button class="btn primary block" type="submit">Check risk</button></form>' +
+      '<section class="card limits" aria-labelledby="lim-h" data-testid="limits"><h2 id="lim-h">Your limits for this recipient</h2>' +
+      '<p class="muted small">Worked out by the risk model for this sender, recipient and the demo controls. Prototype values.</p>' +
+      '<ul class="limit-rows">' + rows.map(function (r, i) {
+        return '<li class="limit-row lr-' + i + '"><div><strong>' + r[0] + '</strong><span class="muted small">' + r[2] + '</span></div><span class="limit-val">' + esc(limitText(r[1])) + '</span></li>';
+      }).join('') + '</ul><p class="limit-above">' + icon('alert') + '<span>' + esc(above) + '</span></p>' +
+      '<p class="muted small">Also capped by the ' + esc(inr(DEMO_CEILING)) + ' demo ceiling and your simulated balance.</p></section></div>';
+  }
+
+  function bar(label, prob) {
+    var pct = Math.round(prob * 100);
+    var lvl = levelOf(prob);
+    return '<div class="bar-row"><div class="bar-label"><span>' + esc(label) + '</span><span class="muted small">' + lvl + '</span></div>' +
+      '<div class="bar" role="img" aria-label="' + esc(label) + ': ' + lvl + '"><span class="fill lvl-' + lvl.toLowerCase() + '" style="width:' + Math.max(3, pct) + '%"></span></div></div>';
+  }
+
+  function nameForChainNode(upi, user, links) {
+    if (upi === user.upi) return 'You';
+    // Only the account that paid the sender directly is named; earlier ones stay anonymous.
+    var direct = links.length ? links[links.length - 1].from : null;
+    if (upi === direct) { var u = findUserByUpi(db, upi); return u ? u.name : upi; }
+    return 'Another Yogii account';
+  }
+
+  function chainView(risk, p, user) {
+    var g = risk.graph;
+    if (!g.hops) return '<p class="muted">No payment chain found: this payment doesn’t look like money you just received moving on.</p>';
+    var steps = g.links.map(function (l) {
+      return '<li><span class="node">' + esc(nameForChainNode(l.from, user, g.links)) + '</span><span class="edge">' + esc(inr(l.amount)) + ' · ' + Math.round(l.gapMinutes) + ' min before the next payment · ' + levelPill(l.level) + '</span></li>';
+    }).join('') + '<li><span class="node">You</span><span class="edge">' + esc(inr(p.amount)) + ' · this payment</span></li><li><span class="node">' + esc(p.toName) + '</span></li>';
+    return '<p><strong>' + g.hops + '-hop payment chain.</strong> Money seems to be moving through several accounts in similar amounts. This is a signal, not proof of anything.</p><ol class="chain">' + steps + '</ol>';
+  }
+
+  function indirectView(risk, user) {
+    if (!risk.indirect.found) return '<p class="muted">No indirect connection found.</p>';
+    var path = risk.indirect.path;
+    var names = path.map(function (upi, i) {
+      if (upi === user.upi) return 'You (' + upi + ')';
+      if (i === path.length - 1) return upi;
+      var paidDirectly = db.payments.some(function (q) { return q.fromUserId === user.id && q.to === upi && q.status === 'COMPLETED'; });
+      return paidDirectly ? upi : 'Another Yogii account';
+    });
+    return '<p>You haven’t paid this recipient, but you’re connected through an intermediary you paid. This is a signal, not proof of anything.</p>' +
+      '<p class="path" data-testid="indirect-path">' + names.map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('<span aria-hidden="true" class="arrow">→</span>') + '</p>';
+  }
+
+  function riskBreakdown(p, user) {
+    var r = p.risk;
+    return '<div class="risk-grid">' +
+      '<section class="card"><h2>Your side</h2>' + bar('Amount', r.components.amount) + bar('Behaviour', r.components.behavior) + bar('Context', r.components.context) + '</section>' +
+      '<section class="card"><h2>Receiver side</h2><p>' + levelPill(r.receiver.level) + '</p><p>' + esc(r.receiver.note) + '</p><p class="muted small">You see only a level for privacy.</p></section>' +
+      '<section class="card"><h2>Payment chain</h2>' + chainView(r, p, user) + '</section>' +
+      '<section class="card"><h2>Indirect connection</h2>' + indirectView(r, user) + '</section>' +
+      '<section class="card span-2"><h2>Why</h2>' + (r.reasons.length ? '<ul class="reasons">' + r.reasons.map(function (x) { return '<li data-code="' + x.code + '">' + icon('alert') + '<span>' + esc(x.text) + '</span></li>'; }).join('') + '</ul>' : '<p class="muted">Nothing unusual stood out.</p>') + '</section></div>';
+  }
+
+  function viewRisk(user) {
+    var p = flowPayment();
+    var r = p.risk;
+    var blocked = p.status === 'BLOCKED';
+    var msg = { LOW: 'Low risk. You can go ahead.', MEDIUM: 'Medium risk. We’ll ask for a short demo verification.', HIGH: 'High risk. Take a moment: make sure you know and trust this recipient.', VERY_HIGH: 'Very high risk. This payment is blocked.' }[r.band];
+    return stepper(2) + '<h1>Risk check</h1>' +
+      '<section class="card score-card band-bg-' + r.band.toLowerCase() + '" data-testid="risk-score"><div class="score"><span class="score-num">' + r.score + '</span><span class="score-of">/100</span></div>' +
+      '<div><p>' + bandChip(r.band) + '</p><p class="score-msg">' + esc(msg) + '</p><p class="muted small">' + esc(inr(p.amount)) + ' to ' + esc(p.toName) + ' · prototype model on synthetic data</p></div></section>' +
+      riskBreakdown(p, user) +
+      '<section class="card decision" aria-labelledby="dec-h"><h2 id="dec-h">Before you enter your PIN</h2>' +
+      (blocked ? '<p class="warn">' + icon('alert') + 'Yogii blocked this payment. No money moved. OK is disabled.</p>'
+        : '<p>Check the name, amount and reasons above. Choose OK only if you know this recipient and nobody is pressuring you to pay.</p>') +
+      '<div class="decide"><button type="button" class="btn ok" data-action="decide-ok"' + (blocked ? ' disabled aria-disabled="true"' : '') + '>' + icon('check') + 'OK</button>' +
+      '<button type="button" class="btn reject" data-action="' + (blocked ? 'done-blocked' : 'decide-reject') + '">' + icon('x') + (blocked ? 'Close' : 'Reject') + '</button></div></section>';
+  }
+
+  function viewVerify(user) {
+    var p = flowPayment();
+    var high = p.risk.band === 'HIGH';
+    var checks = ['I know this recipient personally or it’s a business I chose.', 'Nobody asked me to pay urgently or to “unlock” a refund, prize or job.'];
+    if (high) checks.push('I understand that a simulated high-risk payment can’t be undone in real life.');
+    return stepper(3) + '<h1>Demo verification</h1>' +
+      '<form class="card form" data-form="verify" novalidate><p>' + bandChip(p.risk.band) + ' Confirm the following to continue. ' + sim() + '</p>' +
+      '<fieldset><legend class="sr-only">Confirmations</legend>' + checks.map(function (c, i) { return '<label class="check"><input type="checkbox" name="c' + i + '" required' + (i === 0 ? ' data-autofocus' : '') + '> ' + esc(c) + '</label>'; }).join('') + '</fieldset>' +
+      (high ? field('verify-upi', 'Type the recipient’s UPI ID to confirm', 'text', { name: 'upi', autocomplete: 'off', hint: 'Shown on the risk screen: ' + p.to }) : '') +
+      '<p class="form-error" role="alert">' + esc(ui.flow.error || '') + '</p>' +
+      '<p class="muted small">This is a demo step. Yogii never asks for an OTP.</p>' +
+      '<div class="decide"><button class="btn primary" type="submit">Verify</button><button type="button" class="btn ghost" data-action="decide-reject">Cancel payment</button></div></form>';
+  }
+
+  function viewPin() {
+    var p = flowPayment();
+    return stepper(3) + '<h1>Enter demo PIN</h1>' +
+      '<form class="card form pin-form" data-form="pin" novalidate autocomplete="off">' +
+      '<p class="notice">' + icon('shield') + '<span><strong>This is not a UPI PIN.</strong> Use the demo PIN <span class="mono">1234</span>. Never type a real UPI PIN, OTP, CVV or bank password here.</span></p>' +
+      '<p>' + esc(inr(p.amount)) + ' to <strong>' + esc(p.toName) + '</strong></p>' +
+      '<div class="field"><label for="pin">Demo PIN</label><input id="pin" name="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" data-autofocus aria-describedby="pin-hint' + (ui.flow.error ? ' pin-err' : '') + '"' + (ui.flow.error ? ' aria-invalid="true"' : '') + '>' +
+      '<p class="hint" id="pin-hint">4 digits. Checked in memory, never saved.</p>' + (ui.flow.error ? '<p class="field-error" id="pin-err" role="alert">' + esc(ui.flow.error) + '</p>' : '') + '</div>' +
+      '<div class="decide"><button class="btn primary" type="submit">Pay ' + esc(inr(p.amount)) + '</button><button type="button" class="btn ghost" data-action="decide-reject">Cancel payment</button></div></form>';
+  }
+
+  function viewResult(user) {
+    var p = flowPayment();
+    var title = { COMPLETED: 'Payment completed', FAILED: p.decision === 'REJECTED' ? 'Payment rejected' : 'Payment failed', PENDING: 'Payment pending', BLOCKED: 'Payment blocked' }[p.status] || statusLabel(p);
+    var body = { COMPLETED: 'The simulated money has moved.', PENDING: 'The demo bank hasn’t confirmed yet. Your balance changes only once it completes.', FAILED: (p.failureReason || '') + ' Your balance did not change.', BLOCKED: 'No money moved.' }[p.status] || '';
+    return stepper(4) + '<section class="card result result-' + p.status.toLowerCase() + '" data-testid="result"><div class="result-icon" aria-hidden="true">' + icon(p.status === 'COMPLETED' ? 'check' : p.status === 'PENDING' ? 'clock' : 'x') + '</div>' +
+      '<h1>' + esc(title) + '</h1><p class="result-amount">' + esc(inr(p.amount)) + '</p><p>to ' + esc(p.toName) + ' <span class="mono muted">' + esc(p.to) + '</span></p>' +
+      '<p class="muted">' + esc(body) + ' ' + sim() + '</p>' + (p.bankRef ? '<p class="small muted mono">Demo reference ' + esc(p.bankRef) + '</p>' : '') +
+      '<div class="decide">' + (p.status === 'PENDING' ? '<button type="button" class="btn primary" data-action="check-status" data-id="' + p.id + '">Check status</button>' : '') +
+      '<a class="btn ghost" href="#/payment/' + p.id + '">View details</a><button type="button" class="btn ghost" data-action="new-payment">New payment</button></div></section>';
+  }
+
+  // ---------------- history / detail ----------------
+  function viewHistory(user) {
+    var fl = ui.filters;
+    var q = fl.q.trim().toLowerCase();
+    var list = userPayments(user).filter(function (p) {
+      if (fl.status !== 'all') {
+        if (fl.status === 'REJECTED' ? p.decision !== 'REJECTED' : (p.status !== fl.status || (fl.status === 'FAILED' && p.decision === 'REJECTED'))) return false;
+      }
+      if (fl.band !== 'all' && (!p.risk || p.risk.band !== fl.band)) return false;
+      if (q && [p.toName, p.to, p.fromName, p.from, String(p.amount), p.note || ''].join(' ').toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    var opt = function (v, l, cur) { return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>'; };
+    return '<h1>History</h1><form class="card filters" data-form="filters" role="search">' +
+      '<div class="field"><label for="hq">Search</label><input id="hq" name="q" type="search" value="' + esc(fl.q) + '" placeholder="Name, UPI ID or amount"></div>' +
+      '<div class="field"><label for="hs">Status</label><select id="hs" name="status">' + opt('all', 'All', fl.status) + opt('COMPLETED', 'Completed', fl.status) + opt('PENDING', 'Pending', fl.status) + opt('BLOCKED', 'Blocked', fl.status) + opt('FAILED', 'Failed', fl.status) + opt('REJECTED', 'Rejected', fl.status) + opt('NEEDS_VERIFICATION', 'Needs verification', fl.status) + '</select></div>' +
+      '<div class="field"><label for="hb">Risk band</label><select id="hb" name="band">' + opt('all', 'All', fl.band) + BAND_ORDER.map(function (b) { return opt(b, bandLabel(b), fl.band); }).join('') + '</select></div></form>' +
+      '<p class="muted small" aria-live="polite">' + list.length + ' payment' + (list.length === 1 ? '' : 's') + '</p>' +
+      '<section class="card">' + (list.length ? '<ul class="rows">' + list.map(function (p) { return activityRow(p, user); }).join('') + '</ul>' : '<p class="muted">No payments match.</p>') + '</section>';
+  }
+
+  function viewPayment(user, id) {
+    var p = findPayment(db, id);
+    if (!p || (p.fromUserId !== user.id && p.to !== user.upi)) return '<h1>Payment not found</h1><p><a href="#/history">Back to history</a></p>';
+    var incoming = p.fromUserId !== user.id;
+    var head = '<a class="btn ghost back" href="#/history">' + icon('back') + 'History</a><h1>' + (incoming ? 'Payment received' : 'Payment to ' + esc(p.toName)) + '</h1>' +
+      '<section class="card detail-head"><p class="result-amount">' + esc(inr(p.amount)) + '</p><p>' + (incoming ? statusChip({ status: 'COMPLETED' }) : statusChip(p)) + (p.risk && !incoming ? ' ' + bandChip(p.risk.band) : '') + ' ' + sim() + '</p>' +
+      '<ul class="facts"><li><span>' + (incoming ? 'From' : 'To') + '</span><strong>' + esc(incoming ? p.fromName : p.toName) + ' <span class="mono muted">' + esc(incoming ? p.from : p.to) + '</span></strong></li>' +
+      '<li><span>Created</span><strong>' + esc(fmtTime(p.createdAt)) + '</strong></li>' + (p.bankRef ? '<li><span>Demo reference</span><strong class="mono">' + esc(p.bankRef) + '</strong></li>' : '') +
+      (p.note ? '<li><span>Note</span><strong>' + esc(p.note) + '</strong></li>' : '') + (p.failureReason && !incoming ? '<li><span>Reason</span><strong>' + esc(p.failureReason) + '</strong></li>' : '') + '</ul>' +
+      (p.status === 'PENDING' && !incoming ? '<button type="button" class="btn primary" data-action="check-status" data-id="' + p.id + '">Check status</button>' : '') + '</section>';
+    if (incoming) return head + '<p class="muted">Risk details are only shown to the sender.</p>';
+    var timeline = '<section class="card"><h2>Timeline</h2><ol class="timeline">' + p.timeline.map(function (t) {
+      return '<li><span class="t-status">' + esc(t.status.replace(/_/g, ' ').toLowerCase()) + '</span><span class="t-note">' + esc(t.note) + '</span><span class="t-time muted small">' + esc(fmtTime(t.at)) + '</span></li>';
+    }).join('') + '</ol></section>';
+    if (!p.risk) return head + timeline + '<p class="muted">Demo history entry: no risk check was stored.</p>';
+    var r = p.risk;
+    var tech = '<details class="card tech"><summary>Technical details</summary><p class="muted small">Prototype model trained on synthetic data (' + esc(r.model.engine) + ', v' + esc(r.model.version) + '). Component values are model probabilities.</p>' +
+      '<table><caption class="sr-only">Risk inputs</caption><tbody>' +
+      '<tr><th scope="row">Score</th><td>' + r.score + ' (' + esc(r.band) + ')</td></tr>' +
+      '<tr><th scope="row">p_amount / p_behavior / p_context</th><td>' + [r.components.amount, r.components.behavior, r.components.context].map(function (x) { return x.toFixed(3); }).join(' / ') + '</td></tr>' +
+      '<tr><th scope="row">graph / receiver</th><td>' + r.graph.score.toFixed(3) + ' / ' + r.receiver.score.toFixed(2) + '</td></tr>' +
+      Object.keys(r.features).map(function (k) { var v = r.features[k]; return '<tr><th scope="row" class="mono">' + k + '</th><td class="mono">' + (Number.isInteger(v) ? v : v.toFixed(3)) + '</td></tr>'; }).join('') +
+      '<tr><th scope="row">Demo controls</th><td>' + esc('new device: ' + (p.controls.newDevice ? 'yes' : 'no') + ', 2 AM: ' + (p.controls.night ? 'yes' : 'no') + ', bank: ' + p.controls.outcome) + '</td></tr>' +
+      '</tbody></table></details>';
+    return head + '<section class="card score-card band-bg-' + r.band.toLowerCase() + '"><div class="score"><span class="score-num">' + r.score + '</span><span class="score-of">/100</span></div><div>' + bandChip(r.band) + '<p class="muted small">Risk at the time of payment</p></div></section>' +
+      timeline + riskBreakdown(p, user) + tech;
+  }
+
+  // ---------------- settings ----------------
+  function viewSettings(user) {
+    var m = MODEL;
+    var theme = db.prefs.theme;
+    var opt = function (v, l) { return '<option value="' + v + '"' + (theme === v ? ' selected' : '') + '>' + l + '</option>'; };
+    return '<h1>Settings</h1><div class="grid-2">' +
+      '<section class="card"><h2>Profile</h2><ul class="facts"><li><span>Name</span><strong>' + esc(user.name) + '</strong></li><li><span>Email</span><strong>' + esc(user.email) + '</strong></li>' +
+      '<li><span>Mobile</span><strong>' + esc(user.phone) + '</strong></li><li><span>UPI ID</span><strong class="mono">' + esc(user.upi) + '</strong> ' + sim() + '</li></ul></section>' +
+      '<section class="card"><h2>Security</h2><ul class="bullets"><li>Passwords are hashed with PBKDF2-SHA-256 and a per-user salt.</li><li>Sign-in locks for 60 seconds after 5 failed attempts.</li><li>Sessions last 12 hours. This one ends ' + esc(fmtTime(db.session.expiresAt)) + '.</li><li>The demo PIN is <span class="mono">1234</span>. It is not a UPI PIN and is never stored.</li></ul></section>' +
+      '<section class="card"><h2>Privacy</h2><ul class="bullets"><li>Yogii never asks for or stores a UPI PIN, OTP, CVV, card PIN or bank password.</li><li>Your data stays in this browser (localStorage).</li><li>Receivers are shown to you only as a risk level.</li><li>In payment chains only the person who paid you directly is named.</li></ul></section>' +
+      '<section class="card"><h2>Risk engine</h2><ul class="facts"><li><span>Model</span><strong>v' + esc(m.version) + ' · ' + esc(m.engine) + '</strong></li><li><span>Training data</span><strong>Synthetic only</strong></li>' +
+      '<li><span>Components</span><strong>3 XGBoost anomaly models + graph + receiver side</strong></li><li><span>Combiner</span><strong>Linear regression</strong></li>' +
+      '<li><span>Test PR-AUC (synthetic)</span><strong>' + esc(m.summary.pr_auc) + '</strong></li></ul>' +
+      '<p class="muted small">Bands: 0–29 Low, 30–59 Medium, 60–84 High, 85–100 Very high (blocked). These are Yogii prototype values, not RBI, NPCI or bank standards. Graph links are signals, never proof of fraud.</p></section>' +
+      '<section class="card"><h2>Appearance</h2><div class="field"><label for="theme">Theme</label><select id="theme" data-action-change="theme">' + opt('system', 'Match system') + opt('light', 'Light') + opt('dark', 'Dark') + '</select></div></section>' +
+      '<section class="card"><h2>Session and data</h2><div class="stack"><button type="button" class="btn ghost" data-action="signout">Sign out</button>' +
+      '<button type="button" class="btn danger" data-action="open-reset">Reset demo data</button></div><p class="muted small">Reset removes every account and payment in this browser and restores the fictional demo accounts.</p></section></div>' +
+      '<dialog id="reset-dialog" aria-labelledby="reset-h" aria-describedby="reset-d"><form method="dialog" class="dialog-body"><h2 id="reset-h">Reset demo data?</h2><p id="reset-d">All accounts and payments in this browser will be removed and the demo accounts restored. You will be signed out.</p>' +
+      '<div class="decide"><button value="cancel" class="btn ghost" data-autofocus-dialog>Cancel</button><button type="button" class="btn danger" data-action="confirm-reset">Reset</button></div></form></dialog>';
+  }
+
+  // ---------------- event handling ----------------
+  function formData(form) {
+    var out = {};
+    Array.prototype.forEach.call(form.elements, function (el) { if (el.name) out[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+    return out;
+  }
+
+  function parseAmount(s) {
+    var t = String(s || '').replace(/[,\s₹]/g, '');
+    if (!/^\d+(\.\d{1,2})?$/.test(t)) return NaN;
+    return Number(t);
+  }
+
+  var busy = false;
+
+  async function onSubmit(ev) {
+    var form = ev.target.closest('form[data-form]');
+    if (!form) return;
+    ev.preventDefault();
+    if (busy) return;
+    var kind = form.getAttribute('data-form');
+    var data = formData(form);
+    var user = currentUser(db);
+    try {
+      busy = true;
+      if (kind === 'signin') {
+        ui.lastEmail = data.email;
+        var btn = form.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Signing in…';
+        var res = await signIn(db, data.email, data.password);
+        save();
+        if (!res.ok) { ui.signinError = res.error; render(); announce(res.error); return; }
+        ui.signinError = ''; ui.flow = null; go('home'); announce('Signed in as ' + res.user.name);
+      } else if (kind === 'register') {
+        ui.regValues = { name: data.name, email: data.email, phone: data.phone };
+        var rr = await registerUser(db, data);
+        if (!rr.ok) { ui.regErrors = rr.errors; ui.regError = 'Please fix the highlighted fields.'; render(); announce('Please fix the highlighted fields.'); return; }
+        ui.regErrors = null; ui.regValues = null; ui.regError = '';
+        await signIn(db, data.email, data.password);
+        save(); go('home'); announce('Account created. Your simulated UPI ID is ' + rr.user.upi);
+      } else if (kind === 'recipient') {
+        ui.flow.input = data.to;
+        var r = resolveRecipient(db, data.to, user.id);
+        if (r.error) { ui.flow.error = r.error; render(); announce(r.error); return; }
+        ui.flow.error = ''; ui.flow.recipient = r.recipient; ui.flow.step = 'confirm'; render();
+      } else if (kind === 'amount') {
+        submitAmount(user, data);
+      } else if (kind === 'verify') {
+        var p = flowPayment();
+        if (p.risk.band === 'HIGH' && String(data.upi || '').trim().toLowerCase() !== p.to) { ui.flow.error = 'The UPI ID doesn’t match. Check it on the risk screen.'; render(); announce(ui.flow.error); return; }
+        var boxes = Array.prototype.filter.call(form.querySelectorAll('input[type=checkbox]'), function (c) { return !c.checked; });
+        if (boxes.length) { ui.flow.error = 'Tick every confirmation to continue.'; render(); announce(ui.flow.error); return; }
+        verifyPayment(p); save(); ui.flow.error = ''; ui.flow.step = 'pin'; render();
+      } else if (kind === 'pin') {
+        submitPin(user, form, data);
+      }
+    } catch (e) {
+      showError(e);
+    } finally { busy = false; }
+  }
+
+  function submitAmount(user, data) {
+    var f = ui.flow;
+    f.amount = data.amount; f.note = data.note;
+    var a = parseAmount(data.amount);
+    var L = currentLimits(user);
+    var err = '';
+    if (!(a > 0)) err = 'Enter an amount in rupees, for example 500 or 1250.50.';
+    else if (a > DEMO_CEILING) err = 'That’s above the ' + inr(DEMO_CEILING) + ' demo ceiling.';
+    else if (a > user.balance) err = 'That’s more than your simulated balance.';
+    if (err) { f.error = err; render(); announce(err); return; }
+    if (L.strongWarning !== null && a > L.strongWarning && !f.confirmOverLimit) {
+      f.confirmOverLimit = true;
+      f.error = 'Above the model limit for this recipient: the risk check will block it. Press Check risk again to see why.';
+      render(); announce(f.error); return;
+    }
+    f.error = ''; f.confirmOverLimit = false;
+    if (!f.key) f.key = 'k-' + user.id + '-' + now() + '-' + Math.random().toString(36).slice(2, 8);
+    var p = createPayment(db, { senderId: user.id, recipient: f.recipient, amount: a, controls: f.controls, key: f.key, note: data.note });
+    if (p.status === 'DRAFT') assessPayment(db, p);
+    save();
+    f.paymentId = p.id; f.step = 'risk'; render();
+    announce('Risk check: ' + p.risk.score + ' out of 100, ' + bandLabel(p.risk.band) + ' risk.');
+  }
+
+  function submitPin(user, form, data) {
+    var p = flowPayment();
+    var res = authorizePayment(db, p, data.pin);
+    form.reset();
+    if (!res.ok) {
+      ui.flow.pinFails = (ui.flow.pinFails || 0) + 1;
+      if (ui.flow.pinFails >= 3) { rejectPayment(p, 'Cancelled after 3 wrong demo PIN attempts.'); p.decision = null; save(); ui.flow.step = 'result'; render(); return; }
+      ui.flow.error = 'Wrong demo PIN. The demo PIN is 1234. ' + (3 - ui.flow.pinFails) + ' attempt' + (3 - ui.flow.pinFails === 1 ? '' : 's') + ' left.';
+      render(); announce(ui.flow.error); return;
+    }
+    ui.flow.error = '';
+    save();
+    ui.flow.step = 'processing'; render();
+    setTimeout(function () { ui.flow.step = 'result'; render(); announce(statusLabel(p) + ': ' + inr(p.amount) + ' to ' + p.toName); }, 700);
+  }
+
+  function showError(e) {
+    var msg = (e && e.message) || 'Something went wrong.';
+    if (ui.flow) { ui.flow.error = msg; }
+    render(); announce(msg);
+  }
+
+  function onClick(ev) {
+    var el = ev.target.closest('[data-action]');
+    if (!el || el.disabled) return;
+    var a = el.getAttribute('data-action');
+    var user = currentUser(db);
+    try {
+      switch (a) {
+        case 'fill-demo': {
+          var email = doc.getElementById('si-email'); email.value = el.getAttribute('data-email');
+          doc.getElementById('si-password').focus(); break;
+        }
+        case 'toggle-balance': db.prefs.hideBalance = !db.prefs.hideBalance; save(); render(); announce(db.prefs.hideBalance ? 'Balance hidden' : 'Balance shown'); break;
+        case 'scenario':
+          ui.flow = newFlow();
+          var sr = resolveRecipient(db, el.getAttribute('data-to'), user.id);
+          if (sr.error) { ui.flow.input = el.getAttribute('data-to'); ui.flow.error = sr.error; }
+          else { ui.flow.recipient = sr.recipient; ui.flow.input = sr.recipient.upi; ui.flow.amount = el.getAttribute('data-amount'); ui.flow.step = 'confirm'; }
+          go('send'); break;
+        case 'pick': {
+          var pr = resolveRecipient(db, el.getAttribute('data-to'), user.id);
+          if (pr.error) { ui.flow.error = pr.error; render(); break; }
+          ui.flow.input = pr.recipient.upi; ui.flow.recipient = pr.recipient; ui.flow.error = ''; ui.flow.step = 'confirm'; render(); break;
+        }
+        case 'confirm-recipient': ui.flow.step = 'amount'; ui.flow.error = ''; render(); break;
+        case 'flow-back': ui.flow.step = el.getAttribute('data-step'); ui.flow.error = ''; ui.flow.confirmOverLimit = false; render(); break;
+        case 'decide-ok': {
+          var p = flowPayment();
+          approvePayment(p); save();
+          ui.flow.step = p.status === 'NEEDS_VERIFICATION' ? 'verify' : 'pin'; ui.flow.error = ''; render(); break;
+        }
+        case 'decide-reject': {
+          var rp = flowPayment();
+          rejectPayment(rp); save(); ui.flow.step = 'result'; render(); announce('Payment rejected. No money moved.'); break;
+        }
+        case 'done-blocked': ui.flow.step = 'result'; render(); break;
+        case 'new-payment': ui.flow = newFlow(); go('send'); break;
+        case 'check-status': {
+          var cp = findPayment(db, el.getAttribute('data-id'));
+          var res = new MockPaymentProvider(db).callback(cp); save(); render();
+          announce(res.duplicate ? 'Already ' + statusLabel(cp).toLowerCase() + '. Nothing changed.' : 'Status: ' + statusLabel(cp)); break;
+        }
+        case 'signout': db.session = null; save(); ui.flow = null; go('signin'); announce('Signed out'); break;
+        case 'open-reset': {
+          var dlg = doc.getElementById('reset-dialog');
+          if (dlg && dlg.showModal) { dlg.showModal(); var c = dlg.querySelector('[data-autofocus-dialog]'); if (c) c.focus(); }
+          else if (root.confirm('Reset demo data?')) resetAll();
+          break;
+        }
+        case 'confirm-reset': resetAll(); break;
+      }
+    } catch (e) { showError(e); }
+  }
+
+  async function resetAll() {
+    var d = doc.getElementById('reset-dialog'); if (d && d.open) d.close();
+    Storage.remove(STORAGE_KEY);
+    db = await seedDb(); save(); ui.flow = null; ui.filters = { q: '', status: 'all', band: 'all' };
+    go('signin'); announce('Demo data reset.');
+  }
+
+  function onChange(ev) {
+    var el = ev.target;
+    if (el.hasAttribute('data-control') && ui.flow) {
+      var k = el.getAttribute('data-control');
+      ui.flow.controls[k] = el.type === 'checkbox' ? el.checked : el.value;
+      var amt = doc.getElementById('amt'); if (amt) ui.flow.amount = amt.value;
+      var note = doc.getElementById('note'); if (note) ui.flow.note = note.value;
+      ui.flow.confirmOverLimit = false;
+      render();
+      var again = doc.querySelector('[data-control="' + k + '"]'); if (again) again.focus();
+      announce('Limits updated.');
+      return;
+    }
+    if (el.getAttribute('data-action-change') === 'theme') { db.prefs.theme = el.value; save(); applyTheme(); announce('Theme changed'); return; }
+    var form = el.closest('form[data-form="filters"]');
+    if (form) { updateFilters(form, el); }
+  }
+
+  function onInput(ev) {
+    var form = ev.target.closest('form[data-form="filters"]');
+    if (form && ev.target.name === 'q') updateFilters(form, ev.target);
+  }
+
+  function updateFilters(form, el) {
+    var d = formData(form);
+    ui.filters = { q: d.q || '', status: d.status || 'all', band: d.band || 'all' };
+    var id = el.id, pos = el.selectionStart;
+    render();
+    var again = doc.getElementById(id);
+    if (again) { again.focus(); try { if (pos !== null && again.setSelectionRange) again.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
+  }
+
+  async function boot() {
+    try { setModel(await readInlineModel()); } catch (e) { MODEL = null; MODEL_ERROR = e.message; }
+    try { db = await loadDb(); } catch (e) { db = emptyDb(); MODEL_ERROR = MODEL_ERROR || null; }
+    applyTheme();
+    doc.addEventListener('submit', onSubmit);
+    doc.addEventListener('click', onClick);
+    doc.addEventListener('change', onChange);
+    doc.addEventListener('input', onInput);
+    root.addEventListener('hashchange', onHash);
+    onHash();
+    root.__YOGII_READY__ = true;
+  }
+
+  if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+</body>
+</html>
