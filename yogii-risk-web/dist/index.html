@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7O2IXkKTYPnEcDj5/c6/lmpc9ymxHo30ueO63mokSEw='; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-8acDCXUCA/z21jn7GvrG7ROGDAZqV23Izrsj7a7x32Y='; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="Yogii Risk Web: simulated UPI-style payments with a prototype fraud-risk check. No real money, no real UPI.">
@@ -279,7 +279,8 @@ fieldset { border: 1px solid var(--border); border-radius: var(--radius-sm); pad
 .lr-1 { border-color: var(--amber); }
 .lr-2 { border-color: var(--orange); }
 .limit-val { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
-.limit-above { display: flex; gap: 8px; align-items: flex-start; color: var(--danger); font-weight: 600; font-size: .9rem; }
+.limit-above { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-weight: 600; font-size: .9rem; }
+.limit-above.blocked { color: var(--danger); }
 
 /* ---------- risk ---------- */
 .score-card { display: flex; gap: 20px; align-items: center; border-left: 6px solid var(--border); }
@@ -1500,7 +1501,7 @@ dialog::backdrop { background: rgba(10, 12, 16, .5); }
       '<p class="muted small">Worked out by the risk model for this sender, recipient and the demo controls. Prototype values.</p>' +
       '<ul class="limit-rows">' + rows.map(function (r, i) {
         return '<li class="limit-row lr-' + i + '"><div><strong>' + r[0] + '</strong><span class="muted small">' + r[2] + '</span></div><span class="limit-val">' + esc(limitText(r[1])) + '</span></li>';
-      }).join('') + '</ul><p class="limit-above">' + icon('alert') + '<span>' + esc(above) + '</span></p>' +
+      }).join('') + '</ul><p class="limit-above' + (L.strongWarning === null ? '' : ' blocked') + '">' + icon(L.strongWarning === null ? 'shield' : 'alert') + '<span>' + esc(above) + '</span></p>' +
       '<p class="muted small">Also capped by the ' + esc(inr(DEMO_CEILING)) + ' demo ceiling and your simulated balance.</p></section></div>';
   }
 
