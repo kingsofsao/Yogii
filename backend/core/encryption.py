@@ -104,5 +104,21 @@ def verify_password(password: str, hashed: str) -> bool:
     except (VerifyMismatchError, Exception):
         return False
 
-# Global singleton encryption service
-encryption_service = EncryptionService()
+
+def password_needs_rehash(hashed: str) -> bool:
+    """True when the stored hash uses older Argon2id parameters."""
+    try:
+        return _ph.check_needs_rehash(hashed)
+    except Exception:
+        return False
+
+
+# Precomputed hash used to spend equal time on unknown accounts at login.
+DUMMY_PASSWORD_HASH = _ph.hash("not-a-real-password-used-for-timing-only")
+
+# Global singleton encryption service, keyed from server configuration
+from backend.core.config import settings as _settings  # noqa: E402
+
+encryption_service = EncryptionService(
+    _settings.YOGII_ENCRYPTION_KEY, _settings.YOGII_LOOKUP_HMAC_KEY, _settings.YOGII_KEY_VERSION
+)

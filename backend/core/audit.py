@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 audit_logger = logging.getLogger("yogii.audit")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-FORBIDDEN_KEYWORDS = {"pin", "upi_pin", "password", "cvv", "otp", "secret", "private_key", "credentials"}
+FORBIDDEN_KEYWORDS = {"pin", "password", "cvv", "otp", "secret", "private_key", "credential", "token", "card"}
 
 def sanitize_metadata(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Sanitizes metadata dictionary to ensure no authentication secrets or credentials are ever logged."""
@@ -66,10 +66,11 @@ def log_audit_event(
                 metadata_json=json.dumps(clean_meta),
                 created_at=datetime.now(timezone.utc)
             )
+            # Joins the caller's transaction: the event is committed together with the
+            # change it describes, or rolled back with it.
             db_session.add(db_event)
-            db_session.commit()
         except Exception as exc:
-            audit_logger.error("Failed to commit audit event to database: %s", exc)
+            audit_logger.error("Failed to record audit event: %s", exc)
 
 def log_security_event(
     event_type: str,
@@ -108,6 +109,5 @@ def log_security_event(
                 created_at=datetime.now(timezone.utc)
             )
             db_session.add(sec_event)
-            db_session.commit()
         except Exception as exc:
-            audit_logger.error("Failed to commit security event to database: %s", exc)
+            audit_logger.error("Failed to record security event: %s", exc)
