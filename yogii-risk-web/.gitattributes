@@ -1,0 +1,10 @@
+# Plain text everywhere, LF line endings so diffs and hashes match on every OS
+* text=auto eol=lf
+*.csv text eol=lf
+*.json text eol=lf
+*.js text eol=lf
+*.py text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+Makefile text eol=lf

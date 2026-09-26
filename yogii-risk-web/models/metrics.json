@@ -1,0 +1,88 @@
+{
+  "WARNING": "Synthetic data only. These numbers measure how well the model recovers synthetic labels. They are not real-world fraud performance.",
+  "engine": "xgboost 3.2.0",
+  "seed": 42,
+  "rows": {
+    "total": 24000,
+    "train": 16800,
+    "validation": 3600,
+    "test": 3600
+  },
+  "split": "time-based 70/15/15",
+  "data_sha256": "6397e5af02b6055f6857b5fdd7d473a2fbdc65458c6fc1909f953da84f32fecf",
+  "test": {
+    "positive_definition": "synthetic analyst rating >= 0.6",
+    "decision_threshold": "score >= 60 (HIGH or VERY_HIGH)",
+    "precision": 0.9223,
+    "recall": 0.8912,
+    "f1": 0.9065,
+    "pr_auc": 0.9763,
+    "confusion_matrix": {
+      "tp": 475,
+      "fp": 40,
+      "fn": 58,
+      "tn": 3027
+    },
+    "band_counts": {
+      "LOW": 1990,
+      "MEDIUM": 1095,
+      "HIGH": 374,
+      "VERY_HIGH": 141
+    }
+  },
+  "components": {
+    "amount": {
+      "label": "label_amount",
+      "scale_pos_weight": 4.0,
+      "positive_rate_train": 0.1343,
+      "pr_auc_test": 0.9766
+    },
+    "behavior": {
+      "label": "label_behavior",
+      "scale_pos_weight": 3.4872,
+      "positive_rate_train": 0.2229,
+      "pr_auc_test": 0.7667
+    },
+    "context": {
+      "label": "label_context",
+      "scale_pos_weight": 4.0,
+      "positive_rate_train": 0.1079,
+      "pr_auc_test": 0.6259
+    }
+  },
+  "stacker": {
+    "type": "linear regression (least squares)",
+    "fit_on": "validation slice",
+    "target": "synthetic analyst risk rating (0-1)",
+    "inputs": [
+      "p_amount",
+      "p_behavior",
+      "p_context",
+      "graph",
+      "receiver"
+    ],
+    "intercept": 0.047324,
+    "weights": [
+      0.381161,
+      0.29297,
+      0.149207,
+      0.439499,
+      0.755013
+    ],
+    "r2_validation": 0.9418,
+    "r2_test": 0.9408
+  },
+  "params": {
+    "objective": "binary:logistic",
+    "n_estimators": 60,
+    "max_depth": 3,
+    "eta": 0.2,
+    "lambda": 1.0,
+    "gamma": 0.0,
+    "subsample": 0.8,
+    "tree_method": "hist",
+    "max_bin": 32,
+    "scale_pos_weight_cap": 4.0,
+    "seed": 42
+  }
+}

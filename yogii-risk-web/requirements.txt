@@ -1,0 +1,5 @@
+# Training (numpy is required; xgboost is optional: without it ml/train.py uses ml/xgb_numpy.py)
+numpy>=1.24
+xgboost>=2.0
+# Browser end-to-end test
+playwright>=1.40
