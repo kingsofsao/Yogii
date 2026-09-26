@@ -1,4 +1,4 @@
-# Yogii backend (Python 3.11+)
+# Yogii backend runtime (Python 3.11+)
 fastapi==0.115.12
 uvicorn[standard]==0.34.0
 sqlalchemy==2.0.40
@@ -9,12 +9,11 @@ argon2-cffi>=23.1.0
 cryptography>=42.0.0
 pyjwt>=2.8.0
 email-validator>=2.1.0
-# Machine learning and transaction graph
-xgboost>=2.0,<4
+# Machine learning and transaction graph. On Linux use the CPU-only XGBoost
+# build (same `import xgboost`, without the CUDA libraries).
+xgboost-cpu>=3.0,<4; sys_platform == "linux"
+xgboost>=3.0,<4; sys_platform != "linux"
 scikit-learn>=1.4
 pandas>=2.2.0
 numpy>=1.26.0
 networkx>=3.4.0
-# Tests
-pytest>=8.0.0
-httpx>=0.27.0
