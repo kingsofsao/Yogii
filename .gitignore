@@ -1,1 +1,35 @@
+# Secrets
 .env
+.env.*
+!.env.example
+
+# Python
+venv/
+.venv/
+**/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / frontend build output
+node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Local databases, backups and logs (never commit data)
+*.db
+*.sqlite3
+/data/
+backend/data/*
+!backend/data/.gitkeep
+backups/
+*.dump
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
