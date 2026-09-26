@@ -22,7 +22,8 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 def get_url():
-    return settings.DATABASE_URL
+    # `alembic -x url=...` overrides the environment (used by tests and one-off tooling).
+    return context.get_x_argument(as_dictionary=True).get("url") or settings.DATABASE_URL
 
 def run_migrations_offline() -> None:
     url = get_url()
@@ -31,6 +32,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_as_batch=url.startswith("sqlite"),
     )
 
     with context.begin_transaction():
@@ -48,7 +50,10 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=connection.dialect.name == "sqlite",  # SQLite needs batch ALTERs
+            compare_type=True,
         )
 
         with context.begin_transaction():
