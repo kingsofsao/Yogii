@@ -1,36 +1,38 @@
-import json
-from pathlib import Path
+"""Re-evaluate the saved model on a fresh synthetic stream (different seed).
+
+    python -m backend.ml.evaluate [--seed 99]
+
+SYNTHETIC DATA ONLY: this checks the artifact loads and behaves consistently,
+not that it detects real fraud.
+"""
+
+import argparse
+
 import numpy as np
-import pandas as pd
-import xgboost as xgb
-from backend.ml.feature_engine import FEATURE_COLUMNS
-from backend.ml.synthetic_data import generate_synthetic_fraud_dataset
-from backend.ml.train import compute_binary_metrics
+from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score
 
-def evaluate_saved_model(model_path: str = "backend/model/fraud_model.json", n_eval: int = 2000):
-    path = Path(model_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Model artifact not found at {path}. Fail clearly: no silent fallbacks.")
+from backend.core.config import settings
+from backend.ml.features import FEATURE_COLUMNS
+from backend.ml.inference import inference_service
+from backend.ml.synthetic_data import generate_synthetic_dataset
 
-    booster = xgb.Booster()
-    booster.load_model(str(path))
 
-    df = generate_synthetic_fraud_dataset(n_samples=n_eval, seed=99)
-    X = df[FEATURE_COLUMNS]
+def evaluate(seed: int = 99) -> dict:
+    inference_service.load_model()
+    df = generate_synthetic_dataset(seed=seed, n_users=200, days=40)
+    scores = np.array([inference_service.predict({c: float(row[c]) for c in FEATURE_COLUMNS}).risk_score
+                       for _, row in df.iterrows()])
     y = df["label"].values
+    pred = scores >= settings.RISK_THRESHOLD_HIGH
+    out = {"rows": int(len(df)), "pr_auc": round(float(average_precision_score(y, scores)), 4),
+           "precision": round(float(precision_score(y, pred, zero_division=0)), 4),
+           "recall": round(float(recall_score(y, pred, zero_division=0)), 4),
+           "f1": round(float(f1_score(y, pred, zero_division=0)), 4)}
+    print("Synthetic re-evaluation (not real-world performance):", out)
+    return out
 
-    dmat = xgb.DMatrix(X, feature_names=FEATURE_COLUMNS)
-    preds = booster.predict(dmat)
-
-    metrics = compute_binary_metrics(y, preds, threshold=0.5)
-
-    print("=== Model Evaluation Report ===")
-    print(f"Precision: {metrics['precision']}")
-    print(f"Recall:    {metrics['recall']}")
-    print(f"F1 Score:  {metrics['f1']}")
-    print(f"PR-AUC:    {metrics['pr_auc']}")
-    print(f"Confusion Matrix: {metrics['confusion_matrix']}")
-    return metrics
 
 if __name__ == "__main__":
-    evaluate_saved_model()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--seed", type=int, default=99)
+    evaluate(ap.parse_args().seed)

@@ -1,0 +1,241 @@
+{
+  "model_version": "2.0.0-synthetic",
+  "training_date": "2026-09-26T05:24:07+00:00",
+  "algorithm": "XGBoost (binary:logistic, hist) + isotonic calibration",
+  "score_kind": "calibrated_probability_synthetic",
+  "feature_schema_version": "v2",
+  "feature_columns": [
+    "amount",
+    "amount_log",
+    "sender_avg_amount",
+    "sender_median_amount",
+    "amount_ratio_avg",
+    "amount_ratio_median",
+    "amount_zscore",
+    "sender_history_count",
+    "history_missing",
+    "is_new_recipient",
+    "prior_pair_count",
+    "is_p2m",
+    "tx_count_30m",
+    "tx_value_30m_ratio",
+    "tx_count_24h",
+    "tx_value_24h_ratio",
+    "velocity_ratio_24h",
+    "hour_deviation",
+    "unusual_hour",
+    "device_novelty",
+    "location_novelty",
+    "receiver_is_registered",
+    "receiver_on_watchlist",
+    "receiver_account_age_days",
+    "receiver_distinct_senders_24h",
+    "receiver_inflow_count_24h",
+    "receiver_outflow_ratio_24h",
+    "graph_hop_count",
+    "graph_amount_similarity",
+    "graph_time_gap_minutes",
+    "graph_pass_through_flag",
+    "graph_indirect_link"
+  ],
+  "history_window_days": 30,
+  "graph_depth": 2,
+  "seed": 42,
+  "rows": {
+    "train": 26633,
+    "early_stopping": 2869,
+    "calibration": 5326,
+    "test": 6147
+  },
+  "split": "time-based: train 65%, early stopping 7%, calibration 13%, test 15%",
+  "params": {
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "tree_method": "hist",
+    "max_depth": 4,
+    "eta": 0.05,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "min_child_weight": 2.0,
+    "lambda": 1.0,
+    "nthread": 1,
+    "scale_pos_weight": 26.176530612244896,
+    "seed": 42,
+    "num_boost_round": 400
+  },
+  "model_sha256": "32b407c828e56c7567e15f9057b5e6b500eb83d1d433e438a4a934991ff07ca7",
+  "metrics": {
+    "WARNING": "Synthetic data only. These numbers show how well the model recovers labels we generated; they are not real-world fraud performance.",
+    "test_rows": 6147,
+    "test_synthetic_fraud_rate": 0.0495,
+    "pr_auc": 0.7684,
+    "roc_auc": 0.9701,
+    "brier_raw": 0.022,
+    "brier_calibrated": 0.0164,
+    "at_high_threshold": {
+      "score_cutoff": 60,
+      "precision": 0.8088,
+      "recall": 0.7237,
+      "f1": 0.7639,
+      "confusion_matrix": {
+        "tn": 5791,
+        "fp": 52,
+        "fn": 84,
+        "tp": 220
+      }
+    },
+    "at_block_threshold": {
+      "score_cutoff": 85,
+      "precision": 0.8636,
+      "recall": 0.1875,
+      "f1": 0.3081,
+      "confusion_matrix": {
+        "tn": 5834,
+        "fp": 9,
+        "fn": 247,
+        "tp": 57
+      }
+    },
+    "at_verification_threshold": {
+      "score_cutoff": 30,
+      "precision": 0.7396,
+      "recall": 0.8783,
+      "f1": 0.803,
+      "confusion_matrix": {
+        "tn": 5749,
+        "fp": 94,
+        "fn": 37,
+        "tp": 267
+      }
+    },
+    "bands": {
+      "LOW": {
+        "count": 5786,
+        "synthetic_fraud_rate": 0.0064
+      },
+      "MEDIUM": {
+        "count": 89,
+        "synthetic_fraud_rate": 0.5281
+      },
+      "HIGH": {
+        "count": 206,
+        "synthetic_fraud_rate": 0.7913
+      },
+      "VERY_HIGH": {
+        "count": 66,
+        "synthetic_fraud_rate": 0.8636
+      }
+    },
+    "per_scenario_test": {
+      "benign_big_purchase": {
+        "rows": 106,
+        "mean_score": 0.377,
+        "share_high_or_above": 0.0
+      },
+      "benign_forward": {
+        "rows": 49,
+        "mean_score": 1.98,
+        "share_high_or_above": 0.0
+      },
+      "benign_new_device": {
+        "rows": 81,
+        "mean_score": 0.877,
+        "share_high_or_above": 0.0
+      },
+      "benign_new_unregistered_payee": {
+        "rows": 142,
+        "mean_score": 8.07,
+        "share_high_or_above": 0.014
+      },
+      "fraud_account_takeover": {
+        "rows": 50,
+        "mean_score": 79.86,
+        "share_high_or_above": 0.92
+      },
+      "fraud_mule_pass_through": {
+        "rows": 98,
+        "mean_score": 76.337,
+        "share_high_or_above": 0.847
+      },
+      "fraud_push_scam": {
+        "rows": 45,
+        "mean_score": 62.867,
+        "share_high_or_above": 0.667
+      },
+      "fraud_velocity_drain": {
+        "rows": 104,
+        "mean_score": 59.346,
+        "share_high_or_above": 0.625
+      },
+      "lookalike_burst": {
+        "rows": 32,
+        "mean_score": 56.938,
+        "share_high_or_above": 0.594
+      },
+      "lookalike_forward": {
+        "rows": 17,
+        "mean_score": 76.588,
+        "share_high_or_above": 0.882
+      },
+      "lookalike_large_new_payee": {
+        "rows": 16,
+        "mean_score": 49.625,
+        "share_high_or_above": 0.375
+      },
+      "lookalike_new_device": {
+        "rows": 5,
+        "mean_score": 85.8,
+        "share_high_or_above": 1.0
+      },
+      "normal": {
+        "rows": 4268,
+        "mean_score": 0.077,
+        "share_high_or_above": 0.0
+      },
+      "normal_new_payee": {
+        "rows": 1134,
+        "mean_score": 0.316,
+        "share_high_or_above": 0.001
+      }
+    },
+    "precision": 0.8088,
+    "recall": 0.7237,
+    "f1": 0.7639
+  },
+  "feature_importance_gain": {
+    "is_new_recipient": 0.4122,
+    "receiver_account_age_days": 0.117,
+    "graph_time_gap_minutes": 0.06,
+    "tx_value_30m_ratio": 0.0506,
+    "receiver_on_watchlist": 0.0385,
+    "tx_count_30m": 0.0337,
+    "device_novelty": 0.0285,
+    "prior_pair_count": 0.0234,
+    "is_p2m": 0.0234,
+    "amount_ratio_median": 0.0206,
+    "hour_deviation": 0.0179,
+    "amount_log": 0.0154,
+    "graph_amount_similarity": 0.0152,
+    "amount_ratio_avg": 0.0114,
+    "receiver_outflow_ratio_24h": 0.0109,
+    "location_novelty": 0.0108,
+    "receiver_is_registered": 0.0103,
+    "amount": 0.0096,
+    "tx_value_24h_ratio": 0.0096,
+    "sender_history_count": 0.0091,
+    "velocity_ratio_24h": 0.0088,
+    "amount_zscore": 0.0087,
+    "tx_count_24h": 0.0087,
+    "sender_median_amount": 0.0079,
+    "graph_indirect_link": 0.0071,
+    "unusual_hour": 0.0067,
+    "receiver_inflow_count_24h": 0.0065,
+    "sender_avg_amount": 0.0059,
+    "receiver_distinct_senders_24h": 0.0058,
+    "history_missing": 0.0032,
+    "graph_hop_count": 0.0026,
+    "graph_pass_through_flag": 0.0
+  },
+  "is_synthetic": true,
+  "disclaimer": "Trained only on synthetic, fictional data for the Yogii simulation. Not validated on real payments and not suitable for real risk decisions."
+}

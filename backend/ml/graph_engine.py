@@ -1,150 +1,158 @@
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Any, Optional, Set, Tuple
+"""Transaction graph signals built on NetworkX.
+
+Vocabulary: this module talks about transaction graphs, intermediaries,
+multi-hop links and possible pass-through patterns. A graph link is a signal
+for the model, never proof of fraud on its own: ordinary life (splitting a
+bill, repaying someone) produces the same shapes.
+
+Nodes are keyed hashes of UPI IDs ("acct:<hash>"), so the graph holds no
+plaintext identifiers. Edges are completed simulated payments.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Iterable, List, Optional, Set
+
 import networkx as nx
-from sqlalchemy.orm import Session
-from backend.database.models import TransactionGraphEdge
 
-class TransactionGraphEngine:
-    """
-    Transaction graph analysis engine built on NetworkX.
-    Analyzes transaction networks, multi-hop intermediaries, and pass-through patterns.
-    
-    Terminology Policy:
-    - Uses terms: 'transaction relationship', 'intermediary', 'multi-hop connection', 'possible pass-through pattern'.
-    - NEVER describes relationships as 'friendship'.
-    - A graph relationship by itself is NEVER treated as definitive proof of fraud.
-    """
+MAX_SUPPORTED_DEPTH = 3
 
-    def __init__(self, max_traversal_depth: int = 2):
-        self.max_traversal_depth = min(max_traversal_depth, 3)  # Safe bounded depth (2 default, max 3)
-        self.graph = nx.DiGraph()
 
-    def load_from_db(self, db: Session, limit: int = 5000) -> None:
-        """Loads recent transaction edges from database into the directed graph."""
-        self.graph.clear()
-        edges = (
-            db.query(TransactionGraphEdge)
-            .order_by(TransactionGraphEdge.timestamp.desc())
-            .limit(limit)
-            .all()
-        )
+@dataclass(frozen=True)
+class GraphEdge:
+    sender: str
+    receiver: str
+    amount: float
+    at: datetime
+    payment_id: int = 0
+
+
+@dataclass
+class ChainLink:
+    """One upstream transfer that fed the payment being assessed."""
+    sender: str
+    receiver: str
+    amount: float
+    at: datetime
+    amount_similarity: float
+    gap_minutes: float
+
+
+@dataclass
+class GraphSignals:
+    hop_count: int = 0                 # transfers in the chain including this one; 0 = no chain
+    amount_similarity: float = 0.0     # mean similarity of linked transfers (0-1)
+    time_gap_minutes: Optional[float] = None  # gap between the most recent inbound link and this payment
+    pass_through: bool = False
+    indirect_link: bool = False        # sender reaches recipient through an intermediary
+    links: List[ChainLink] = field(default_factory=list)
+
+
+class TransactionGraph:
+    """A directed multigraph of payments with bounded, cycle-safe traversals."""
+
+    def __init__(self, max_depth: int = 2):
+        if max_depth not in (1, 2, 3):
+            raise ValueError("Graph depth must be 1, 2 or 3.")
+        self.max_depth = max_depth
+        self.g = nx.MultiDiGraph()
+
+    @classmethod
+    def from_edges(cls, edges: Iterable[GraphEdge], max_depth: int = 2) -> "TransactionGraph":
+        tg = cls(max_depth)
         for e in edges:
-            self.add_edge(e.sender_node, e.receiver_node, e.amount, e.timestamp, e.payment_id)
+            tg.add_edge(e)
+        return tg
 
-    def add_edge(self, sender: str, receiver: str, amount: float, timestamp: datetime, payment_id: int) -> None:
-        """Adds a directed payment edge with attributes."""
-        if not self.graph.has_edge(sender, receiver):
-            self.graph.add_edge(
-                sender,
-                receiver,
-                payments=[{
-                    "payment_id": payment_id,
-                    "amount": float(amount),
-                    "timestamp": timestamp
-                }],
-                weight=1
-            )
-        else:
-            self.graph[sender][receiver]["payments"].append({
-                "payment_id": payment_id,
-                "amount": float(amount),
-                "timestamp": timestamp
-            })
-            self.graph[sender][receiver]["weight"] += 1
+    def add_edge(self, e: GraphEdge) -> None:
+        self.g.add_edge(e.sender, e.receiver, amount=float(e.amount), at=e.at, payment_id=e.payment_id)
 
-    def get_k_hop_neighborhood(self, source_node: str, max_depth: Optional[int] = None) -> Dict[int, Set[str]]:
+    def __len__(self) -> int:
+        return self.g.number_of_edges()
+
+    # ------------------------------------------------------------------ neighbourhoods
+    def k_hop_neighbourhood(self, source: str, depth: Optional[int] = None) -> dict[int, Set[str]]:
+        """Nodes first reached at each hop distance from `source` (depth capped at 3)."""
+        limit = min(depth or self.max_depth, MAX_SUPPORTED_DEPTH)
+        out: dict[int, Set[str]] = {h: set() for h in range(1, limit + 1)}
+        if source not in self.g:
+            return out
+        for node, dist in nx.single_source_shortest_path_length(self.g, source, cutoff=limit).items():
+            if dist >= 1:
+                out[dist].add(node)
+        return out
+
+    def indirect_link(self, sender: str, recipient: str, depth: Optional[int] = None) -> bool:
+        """True when sender reaches recipient in 2..depth hops but has never paid them directly."""
+        limit = min(depth or self.max_depth, MAX_SUPPORTED_DEPTH)
+        if limit < 2 or sender not in self.g or recipient not in self.g:
+            return False
+        if self.g.has_edge(sender, recipient):
+            return False
+        # Meet in the middle: forward from the sender, backward from the recipient.
+        forward = {sender}
+        frontier = {sender}
+        for _ in range((limit + 1) // 2):
+            frontier = {n for f in frontier for n in self.g.successors(f)} - forward
+            forward |= frontier
+        backward = {recipient}
+        frontier = {recipient}
+        for _ in range(limit // 2):
+            frontier = {n for f in frontier for n in self.g.predecessors(f)} - backward
+            backward |= frontier
+        return bool((forward - {sender}) & backward)
+
+    # ------------------------------------------------------------------ pass-through chains
+    def upstream_chain(self, sender: str, amount: float, at: datetime, window_minutes: int,
+                       amount_tolerance: float, depth: Optional[int] = None) -> GraphSignals:
+        """Follow inbound transfers upstream from the sender.
+
+        A link counts when money reached the node within `window_minutes` before
+        it paid onwards, and the amounts differ by at most `amount_tolerance`.
+        `depth` is the maximum number of transfers in the chain, including the
+        payment being assessed (2 = one upstream link). Visited nodes are never
+        revisited, so cycles terminate.
         """
-        Cycle-safe bounded breadth-first search up to max_depth (1, 2, or 3 hops).
-        Returns a dict mapping hop_distance -> set of reachable nodes.
-        """
-        depth_limit = max_depth if max_depth is not None else self.max_traversal_depth
-        depth_limit = min(depth_limit, 3)  # Hard bound to prevent runaway traversals
+        limit = min(depth or self.max_depth, MAX_SUPPORTED_DEPTH)
+        signals = GraphSignals()
+        if limit < 2:
+            return signals
+        window = timedelta(minutes=window_minutes)
+        visited = {sender}
+        node, out_amount, out_at = sender, float(amount), at
+        links: List[ChainLink] = []
+        while len(links) < limit - 1 and node in self.g:
+            best = None
+            for src, _, data in self.g.in_edges(node, data=True):
+                if src in visited:
+                    continue
+                t = data["at"]
+                if t > out_at or out_at - t > window:
+                    continue
+                a = data["amount"]
+                if abs(a - out_amount) > amount_tolerance * out_amount:
+                    continue
+                sim = 1.0 - abs(a - out_amount) / max(a, out_amount)
+                if best is None or (sim, t) > (best[0], best[3]):
+                    best = (sim, src, a, t)
+            if best is None:
+                break
+            sim, src, a, t = best
+            links.append(ChainLink(src, node, a, t, sim, (out_at - t).total_seconds() / 60.0))
+            visited.add(src)
+            node, out_amount, out_at = src, a, t
+        if links:
+            signals.hop_count = len(links) + 1
+            signals.amount_similarity = sum(l.amount_similarity for l in links) / len(links)
+            signals.time_gap_minutes = links[0].gap_minutes
+            signals.pass_through = True
+            signals.links = list(reversed(links))
+        return signals
 
-        if not self.graph.has_node(source_node):
-            return {hop: set() for hop in range(1, depth_limit + 1)}
-
-        visited: Set[str] = {source_node}
-        queue: List[Tuple[str, int]] = [(source_node, 0)]
-        hops_map: Dict[int, Set[str]] = {hop: set() for hop in range(1, depth_limit + 1)}
-
-        while queue:
-            current, dist = queue.pop(0)
-            if dist >= depth_limit:
-                continue
-
-            for neighbor in self.graph.successors(current):
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    hops_map[dist + 1].add(neighbor)
-                    queue.append((neighbor, dist + 1))
-
-        return hops_map
-
-    def detect_pass_through_pattern(
-        self,
-        sender_node: str,
-        target_node: str,
-        proposed_amount: float,
-        time_window_hours: float = 4.0,
-        amount_tolerance_pct: float = 0.25
-    ) -> Dict[str, Any]:
-        """
-        Detects possible pass-through patterns where funds flow A -> B -> C within a short time gap
-        with similar amounts (e.g. Visrojit receives from Yogesh and sends to Dinesh).
-        
-        Returns a structured summary.
-        """
-        result = {
-            "possible_pass_through": False,
-            "intermediary_node": None,
-            "hop_count": 0,
-            "amount_similarity": 0.0,
-            "time_gap_minutes": None,
-            "summary": "No pass-through pattern detected."
-        }
-
-        if not self.graph.has_node(target_node):
-            return result
-
-        # Check if target_node has recent outgoing transactions to a third node C
-        now = datetime.now(timezone.utc)
-        outgoing_edges = self.graph.out_edges(target_node, data=True)
-
-        for _, downstream_node, edge_data in outgoing_edges:
-            for payment in edge_data.get("payments", []):
-                pmt_amt = payment["amount"]
-                pmt_time = payment["timestamp"]
-                if pmt_time.tzinfo is None:
-                    pmt_time = pmt_time.replace(tzinfo=timezone.utc)
-
-                time_diff = abs((now - pmt_time).total_seconds()) / 60.0  # minutes
-
-                if time_diff <= (time_window_hours * 60):
-                    # Check amount similarity
-                    amt_diff_ratio = abs(pmt_amt - proposed_amount) / max(proposed_amount, 1.0)
-                    if amt_diff_ratio <= amount_tolerance_pct:
-                        result["possible_pass_through"] = True
-                        result["intermediary_node"] = target_node
-                        result["downstream_node"] = downstream_node
-                        result["hop_count"] = 2
-                        result["amount_similarity"] = round(1.0 - amt_diff_ratio, 3)
-                        result["time_gap_minutes"] = round(time_diff, 1)
-                        result["summary"] = (
-                            "Multi-hop connection: recipient node recently transferred "
-                            f"similar amount (within {int(amount_tolerance_pct*100)}%) to a third party."
-                        )
-                        return result
-
-        return result
-
-    def get_node_degree_stats(self, node: str) -> Dict[str, int]:
-        """Returns in-degree and out-degree connectivity metrics."""
-        if not self.graph.has_node(node):
-            return {"in_degree": 0, "out_degree": 0, "total_degree": 0}
-        in_deg = self.graph.in_degree(node)
-        out_deg = self.graph.out_degree(node)
-        return {
-            "in_degree": in_deg,
-            "out_degree": out_deg,
-            "total_degree": in_deg + out_deg
-        }
+    def signals_for(self, sender: str, recipient: str, amount: float, at: datetime, window_minutes: int,
+                    amount_tolerance: float) -> GraphSignals:
+        s = self.upstream_chain(sender, amount, at, window_minutes, amount_tolerance)
+        s.indirect_link = self.indirect_link(sender, recipient)
+        return s

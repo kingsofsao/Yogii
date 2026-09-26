@@ -1,209 +1,140 @@
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
-import numpy as np
-from sqlalchemy.orm import Session
-from backend.database.models import PaymentAttempt, Recipient, User
-from backend.ml.graph_engine import TransactionGraphEngine
+"""Database adapter for the Feature Engine.
 
-# Strict feature schema order required by XGBoost model
-FEATURE_COLUMNS = [
-    "amount",
-    "avg_amount_30d",
-    "median_amount_30d",
-    "amount_ratio_avg",
-    "amount_deviation_score",
-    "is_new_recipient",
-    "is_familiar_recipient",
-    "prior_recipient_tx_count",
-    "tx_count_30m",
-    "tx_value_30m",
-    "tx_count_24h",
-    "tx_value_24h",
-    "tx_count_7d",
-    "tx_value_7d",
-    "unusual_hour",
-    "simulated_location_novelty",
-    "simulated_device_novelty",
-    "short_vs_long_velocity_ratio",
-    "receiver_activity_score",
-    "graph_hop_count",
-    "graph_amount_similarity",
-    "graph_time_gap_hours",
-    "graph_pass_through_flag"
-]
+It gathers only what the model is permitted to use, then calls the pure
+`compute_features` shared with training:
+* the sender's own earlier payments (up to 90 days),
+* aggregate counts about the receiver (never shown to the sender),
+* transaction-graph edges from the last 90 days, keyed by hashed account ids.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Optional
+
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from backend.core.config import settings
+from backend.core.encryption import encryption_service
+from backend.database.database import as_utc
+from backend.database.models import PaymentAttempt, Recipient, TransactionGraphEdge, User, graph_node_for
+from backend.ml.features import FEATURE_COLUMNS, PastPayment, PaymentContext, ReceiverStats, compute_features
+from backend.ml.graph_engine import GraphEdge, GraphSignals, TransactionGraph
+
+__all__ = ["FeatureEngine", "FEATURE_COLUMNS", "hash_signal", "ResolvedRecipient"]
+
+GRAPH_EDGE_LIMIT = 50000
+
+
+def hash_signal(kind: str, value: Optional[str]) -> Optional[str]:
+    """Keyed hash for simulated device / location labels so raw values are never stored."""
+    if not value:
+        return None
+    return encryption_service.blind_index(f"{kind}:{value.strip().lower()}")
+
+
+@dataclass
+class ResolvedRecipient:
+    upi_hash: str
+    kind: str                       # user, directory, unregistered
+    payment_type: str               # P2P or P2M
+    user: Optional[User] = None
+    directory: Optional[Recipient] = None
+
+    @property
+    def is_registered(self) -> bool:
+        return self.kind in ("user", "directory")
+
+    @property
+    def on_watchlist(self) -> bool:
+        return bool(self.directory and self.directory.on_watchlist)
+
+    @property
+    def created_at(self) -> Optional[datetime]:
+        if self.user is not None:
+            return as_utc(self.user.created_at)
+        if self.directory is not None:
+            return as_utc(self.directory.created_at)
+        return None
+
+
+def resolve_recipient(db: Session, upi_hash: str) -> ResolvedRecipient:
+    user = db.query(User).filter(User.upi_id_lookup_hash == upi_hash).first()
+    if user:
+        return ResolvedRecipient(upi_hash, "user", "P2P", user=user)
+    rec = db.query(Recipient).filter(Recipient.upi_id_lookup_hash == upi_hash).first()
+    if rec:
+        return ResolvedRecipient(upi_hash, "directory", rec.recipient_type, directory=rec)
+    return ResolvedRecipient(upi_hash, "unregistered", "P2P")
+
 
 class FeatureEngine:
-    """
-    Transforms proposed transaction context and permitted historical data
-    into a structured, model-ready feature vector.
-    
-    Privacy and Integrity:
-    - Never processes or retains authentication secrets.
-    - Handles users with zero transaction history gracefully using prior defaults.
-    - Operates with historical windows (30m, 24h, 7d, 30d, 90d).
-    """
+    def __init__(self, window_days: Optional[int] = None, graph_depth: Optional[int] = None):
+        self.window_days = window_days or settings.FEATURE_HISTORY_DAYS
+        self.graph_depth = graph_depth or settings.GRAPH_MAX_DEPTH
 
-    def __init__(self, graph_engine: Optional[TransactionGraphEngine] = None):
-        self.graph_engine = graph_engine or TransactionGraphEngine()
+    def sender_history(self, db: Session, sender_user_id: int, at: datetime, exclude_id: Optional[int]):
+        rows = (
+            db.query(PaymentAttempt.created_at, PaymentAttempt.amount, PaymentAttempt.recipient_upi_lookup_hash,
+                     PaymentAttempt.device_hash, PaymentAttempt.location_hash)
+            .filter(PaymentAttempt.sender_user_id == sender_user_id,
+                    PaymentAttempt.state.in_(("COMPLETED", "PENDING")),
+                    PaymentAttempt.created_at >= at - timedelta(days=90),
+                    PaymentAttempt.created_at < at)
+        )
+        if exclude_id is not None:
+            rows = rows.filter(PaymentAttempt.id != exclude_id)
+        return [PastPayment(as_utc(r[0]), float(r[1]), r[2], r[3], r[4]) for r in rows.all()]
 
-    def build_features(
-        self,
-        db: Session,
-        sender_user_id: int,
-        recipient_lookup_hash: str,
-        amount: float,
-        timestamp: Optional[datetime] = None,
-        device_id: Optional[str] = "demo-device",
-        location: Optional[str] = "Chennai"
-    ) -> Dict[str, float]:
-        now = timestamp or datetime.now(timezone.utc)
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
-
-        # 1. Fetch completed historical payments for sender (up to 90 days)
-        cutoff_90d = now - timedelta(days=90)
-        history_query = (
-            db.query(PaymentAttempt)
-            .filter(
-                PaymentAttempt.sender_user_id == sender_user_id,
-                PaymentAttempt.state == "COMPLETED",
-                PaymentAttempt.created_at >= cutoff_90d
-            )
-            .order_by(PaymentAttempt.created_at.desc())
+    def receiver_stats(self, db: Session, recipient: ResolvedRecipient, sender_user_id: int, at: datetime) -> ReceiverStats:
+        since = at - timedelta(hours=24)
+        inbound = (
+            db.query(PaymentAttempt.sender_user_id, PaymentAttempt.amount)
+            .filter(PaymentAttempt.recipient_upi_lookup_hash == recipient.upi_hash,
+                    PaymentAttempt.state == "COMPLETED",
+                    PaymentAttempt.created_at >= since, PaymentAttempt.created_at < at)
             .all()
         )
-
-        amounts_30d = []
-        amounts_7d = []
-        tx_count_30m = 0
-        tx_value_30m = 0.0
-        tx_count_24h = 0
-        tx_value_24h = 0.0
-        tx_count_7d = 0
-        tx_value_7d = 0.0
-
-        prior_recipient_count = 0
-        seen_devices = set()
-        seen_locations = set()
-
-        cutoff_30m = now - timedelta(minutes=30)
-        cutoff_24h = now - timedelta(hours=24)
-        cutoff_7d = now - timedelta(days=7)
-        cutoff_30d = now - timedelta(days=30)
-
-        for tx in history_query:
-            tx_time = tx.created_at
-            if tx_time.tzinfo is None:
-                tx_time = tx_time.replace(tzinfo=timezone.utc)
-
-            amt = float(tx.amount)
-
-            # Recipient matching
-            if tx.recipient_upi_lookup_hash == recipient_lookup_hash:
-                prior_recipient_count += 1
-
-            # Time windows
-            if tx_time >= cutoff_30m:
-                tx_count_30m += 1
-                tx_value_30m += amt
-
-            if tx_time >= cutoff_24h:
-                tx_count_24h += 1
-                tx_value_24h += amt
-
-            if tx_time >= cutoff_7d:
-                tx_count_7d += 1
-                tx_value_7d += amt
-                amounts_7d.append(amt)
-
-            if tx_time >= cutoff_30d:
-                amounts_30d.append(amt)
-
-        # 2. Historical amount metrics (30-day baseline)
-        if amounts_30d:
-            avg_amount_30d = float(np.mean(amounts_30d))
-            median_amount_30d = float(np.median(amounts_30d))
-            std_amount = float(np.std(amounts_30d)) if len(amounts_30d) > 1 else avg_amount_30d * 0.3
-        else:
-            # Default cold-start baseline for accounts without prior completed payments
-            avg_amount_30d = 1000.0
-            median_amount_30d = 800.0
-            std_amount = 500.0
-
-        amount_ratio_avg = float(amount) / max(avg_amount_30d, 1.0)
-        amount_deviation_score = max(0.0, (float(amount) - avg_amount_30d) / max(std_amount, 100.0))
-
-        # 3. Recipient Familiarity
-        is_new_recipient = 1.0 if prior_recipient_count == 0 else 0.0
-        is_familiar_recipient = 1.0 if prior_recipient_count >= 3 else 0.0
-
-        # 4. Contextual signals
-        unusual_hour = 1.0 if (now.hour < 6 or now.hour >= 23) else 0.0
-        
-        # Location & Device Novelty (demo logic: check if non-standard or unusual)
-        simulated_location_novelty = 1.0 if location and location.lower() not in ("chennai", "mumbai", "delhi", "bengaluru") else 0.0
-        simulated_device_novelty = 1.0 if device_id and device_id.startswith("untrusted-") else 0.0
-
-        # Short-term vs long-term velocity ratio
-        daily_rate_from_7d = (tx_count_7d / 7.0) if tx_count_7d > 0 else 0.5
-        short_vs_long_velocity_ratio = float(tx_count_24h) / max(daily_rate_from_7d, 0.1)
-
-        # 5. Receiver Activity Signals
-        # Count transactions received by this recipient from all users
-        receiver_history = (
-            db.query(PaymentAttempt)
-            .filter(
-                PaymentAttempt.recipient_upi_lookup_hash == recipient_lookup_hash,
-                PaymentAttempt.state == "COMPLETED"
+        outflow = 0.0
+        if recipient.user is not None:
+            outflow = float(
+                db.query(func.coalesce(func.sum(PaymentAttempt.amount), 0))
+                .filter(PaymentAttempt.sender_user_id == recipient.user.id, PaymentAttempt.state == "COMPLETED",
+                        PaymentAttempt.created_at >= since, PaymentAttempt.created_at < at)
+                .scalar() or 0.0
             )
-            .count()
-        )
-        receiver_activity_score = min(float(receiver_history) / 10.0, 1.0)
-
-        # 6. Graph Features
-        self.graph_engine.load_from_db(db)
-        sender_node = f"user:{sender_user_id}"
-        target_node = f"upi:{recipient_lookup_hash[:16]}"
-
-        pass_through_info = self.graph_engine.detect_pass_through_pattern(
-            sender_node=sender_node,
-            target_node=target_node,
-            proposed_amount=float(amount)
+        created = recipient.created_at
+        return ReceiverStats(
+            is_registered=recipient.is_registered,
+            on_watchlist=recipient.on_watchlist,
+            account_age_days=(at - created).total_seconds() / 86400 if created else None,
+            distinct_senders_24h=len({s for s, _ in inbound if s != sender_user_id}),
+            inflow_count_24h=len(inbound),
+            inflow_value_24h=float(sum(float(a) for _, a in inbound)),
+            outflow_value_24h=outflow,
         )
 
-        graph_pass_through_flag = 1.0 if pass_through_info["possible_pass_through"] else 0.0
-        graph_hop_count = float(pass_through_info["hop_count"])
-        graph_amount_similarity = float(pass_through_info["amount_similarity"])
-        graph_time_gap_hours = (
-            float(pass_through_info["time_gap_minutes"]) / 60.0
-            if pass_through_info["time_gap_minutes"] is not None
-            else 24.0
-        )
+    def graph_signals(self, db: Session, sender_node: str, recipient_node: str, amount: float, at: datetime,
+                      exclude_payment_id: Optional[int]) -> GraphSignals:
+        q = (db.query(TransactionGraphEdge)
+             .filter(TransactionGraphEdge.timestamp >= at - timedelta(days=90), TransactionGraphEdge.timestamp < at)
+             .order_by(TransactionGraphEdge.timestamp.desc()).limit(GRAPH_EDGE_LIMIT))
+        edges = [GraphEdge(e.sender_node, e.receiver_node, float(e.amount), as_utc(e.timestamp), e.payment_id)
+                 for e in q.all() if e.payment_id != exclude_payment_id]
+        graph = TransactionGraph.from_edges(edges, self.graph_depth)
+        return graph.signals_for(sender_node, recipient_node, amount, at, settings.GRAPH_WINDOW_MINUTES,
+                                 settings.GRAPH_AMOUNT_TOLERANCE)
 
-        features: Dict[str, float] = {
-            "amount": float(amount),
-            "avg_amount_30d": round(avg_amount_30d, 2),
-            "median_amount_30d": round(median_amount_30d, 2),
-            "amount_ratio_avg": round(amount_ratio_avg, 3),
-            "amount_deviation_score": round(amount_deviation_score, 3),
-            "is_new_recipient": is_new_recipient,
-            "is_familiar_recipient": is_familiar_recipient,
-            "prior_recipient_tx_count": float(prior_recipient_count),
-            "tx_count_30m": float(tx_count_30m),
-            "tx_value_30m": float(tx_value_30m),
-            "tx_count_24h": float(tx_count_24h),
-            "tx_value_24h": float(tx_value_24h),
-            "tx_count_7d": float(tx_count_7d),
-            "tx_value_7d": float(tx_value_7d),
-            "unusual_hour": unusual_hour,
-            "simulated_location_novelty": simulated_location_novelty,
-            "simulated_device_novelty": simulated_device_novelty,
-            "short_vs_long_velocity_ratio": round(short_vs_long_velocity_ratio, 3),
-            "receiver_activity_score": round(receiver_activity_score, 2),
-            "graph_hop_count": graph_hop_count,
-            "graph_amount_similarity": round(graph_amount_similarity, 3),
-            "graph_time_gap_hours": round(graph_time_gap_hours, 2),
-            "graph_pass_through_flag": graph_pass_through_flag
-        }
-
-        return features
+    def build(self, db: Session, sender: User, recipient: ResolvedRecipient, amount: float,
+              at: Optional[datetime] = None, device_hash: Optional[str] = None,
+              location_hash: Optional[str] = None, exclude_id: Optional[int] = None):
+        """Return (features, graph_signals, receiver_stats)."""
+        at = as_utc(at or datetime.now(timezone.utc))
+        history = self.sender_history(db, sender.id, at, exclude_id)
+        receiver = self.receiver_stats(db, recipient, sender.id, at)
+        graph = self.graph_signals(db, sender.graph_node, graph_node_for(recipient.upi_hash), amount, at, exclude_id)
+        ctx = PaymentContext(float(amount), at, recipient.upi_hash, recipient.payment_type, device_hash, location_hash)
+        features: Dict[str, float] = compute_features(ctx, history, receiver, graph, self.window_days)
+        return features, graph, receiver
