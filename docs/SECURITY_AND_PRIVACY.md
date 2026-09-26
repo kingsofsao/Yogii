@@ -67,7 +67,7 @@ The database runs on an internal Docker network with no published port.
 | Security events | Detect abuse | 365 days (`RETENTION_SECURITY_EVENT_DAYS`) |
 | Transaction-graph edges | Model input (90-day lookback) | 90 days (`RETENTION_GRAPH_EDGE_DAYS`) |
 
-`python -m backend.scripts.retention [--dry-run]` applies these periods. Schedule it daily, and run it with the migrator role, since the app role can't delete audit data.
+`python -m backend.scripts.retention [--dry-run]` applies these periods. Schedule it daily with the migrator role, since the app role can't delete audit data. With Docker Compose, that's `docker compose --profile ops run --rm retention`.
 
 The model only reads the sender's own history and aggregate receiver counts. It uses no contacts, location services or device identifiers from the user's device.
 

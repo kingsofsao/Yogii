@@ -63,6 +63,21 @@ services:
     networks: [backend]
     restart: "no"
 
+  # Data-retention job (docs/SECURITY_AND_PRIVACY.md). Runs as the schema owner because the
+  # app role can't delete audit-type data. Run on a schedule:
+  #   docker compose --profile ops run --rm retention
+  retention:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    command: ["python", "-m", "backend.scripts.retention"]
+    profiles: ["ops"]
+    environment:
+      <<: *backend-env
+      DATABASE_URL: postgresql://yogii_migrator:${YOGII_MIGRATOR_PASSWORD}@db:5432/${POSTGRES_DB:-yogii}
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [backend]
+    restart: "no"
+
   api:
     build: { context: ., dockerfile: backend/Dockerfile }
     environment:

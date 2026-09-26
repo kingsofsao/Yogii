@@ -80,7 +80,7 @@ Migration `0003` then removes `UPDATE`, `DELETE` and `TRUNCATE` on audit-type ta
   - `provider_callback_events` records every callback.
   - The app role can't modify any of these.
 - **Stdout:** the same events are written as structured JSON lines (`AUDIT_EVENT:` / `SECURITY_EVENT:`), with secret-like keys removed. Ship container logs to a central store with its own retention and access controls.
-- **Retention:** `python -m backend.scripts.retention` (see [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md)).
+- **Retention:** schedule `docker compose --profile ops run --rm retention` daily. It runs as the schema-owner role, because the app role can't delete audit-type data. Without Docker: `python -m backend.scripts.retention` with a `DATABASE_URL` for the owner role. See [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md).
 - **Reconciliation:** `python -m backend.scripts.reconcile YYYY-MM-DD` compares the day's payments with the rail and lists mismatches. It never changes balances.
 
 ## Monitoring
