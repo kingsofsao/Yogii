@@ -1,46 +1,27 @@
-from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from backend.core.config import mode_label, settings
 from backend.database.database import get_db
-from backend.core.config import settings
+from backend.ml.inference import inference_service
 
 router = APIRouter(tags=["Health"])
 
+
 @router.get("/health")
-def health_check():
-    """Liveness probe returning application metadata and simulation mode status."""
-    return {
-        "status": "healthy",
-        "app": settings.APP_NAME,
-        "payment_mode": settings.PAYMENT_MODE,
-        "live_upi_enabled": settings.LIVE_UPI_ENABLED,
-        "simulation_notice": "Yogii operates strictly in SIMULATION MODE. No real money or real UPI transactions."
-    }
+def health():
+    """Liveness. Reveals no configuration beyond the payment mode."""
+    return {"status": "ok", "mode": mode_label()}
+
 
 @router.get("/ready")
-def readiness_check(db: Session = Depends(get_db)):
-    """Readiness probe checking database connectivity and XGBoost model availability."""
-    # 1. Check Database
+def ready(db: Session = Depends(get_db)):
+    """Readiness: database reachable and risk model loaded."""
     try:
         db.execute(text("SELECT 1"))
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database connectivity check failed: {exc}"
-        )
-
-    # 2. Check XGBoost Model Artifact
-    model_file = Path(settings.MODEL_PATH)
-    if not model_file.exists():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"XGBoost model artifact missing at '{model_file}'. Model training required."
-        )
-
-    return {
-        "status": "ready",
-        "database": "connected",
-        "model": "loaded",
-        "model_version": settings.MODEL_VERSION
-    }
+    except Exception:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Database unavailable.")
+    if not inference_service.is_loaded:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Risk model not loaded.")
+    return {"status": "ready", "mode": mode_label(), "model_version": settings.MODEL_VERSION}

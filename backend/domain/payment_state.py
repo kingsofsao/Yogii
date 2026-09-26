@@ -22,7 +22,6 @@ class InvalidStateTransitionError(Exception):
 LEGAL_TRANSITIONS: Dict[PaymentState, Set[PaymentState]] = {
     PaymentState.DRAFT: {
         PaymentState.ASSESSING,
-        PaymentState.FAILED
     },
     PaymentState.ASSESSING: {
         PaymentState.NEEDS_VERIFICATION,
@@ -34,7 +33,6 @@ LEGAL_TRANSITIONS: Dict[PaymentState, Set[PaymentState]] = {
     PaymentState.NEEDS_VERIFICATION: {
         PaymentState.PENDING,
         PaymentState.COMPLETED,
-        PaymentState.BLOCKED,
         PaymentState.FAILED
     },
     PaymentState.PENDING: {
@@ -59,3 +57,6 @@ def validate_state_transition(current: str, target: str) -> None:
 
     if target_enum not in LEGAL_TRANSITIONS.get(curr_enum, set()):
         raise InvalidStateTransitionError(current, target)
+
+
+TERMINAL_STATES = {PaymentState.BLOCKED, PaymentState.FAILED, PaymentState.REVERSED}

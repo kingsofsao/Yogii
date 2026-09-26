@@ -1,38 +1,28 @@
+from typing import List
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from backend.api.deps import get_current_user
+from backend.api.presenters import iso, money, user_profile
+from backend.core.config import mode_label
 from backend.database.database import get_db
-from backend.database.models import User, DemoPaymentAccount
-from backend.schemas import UserProfileResponse
+from backend.database.models import DemoPaymentAccount, SecurityEvent, User
+from backend.schemas import MeResponse, SecurityEventView
 
-router = APIRouter(tags=["User Profile"])
+router = APIRouter(tags=["Profile"])
 
-@router.get("/me", response_model=UserProfileResponse)
-def get_my_profile(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Returns the authenticated user's profile and simulated balance.
-    All data is decrypted safely on-the-fly for the authorized owner.
-    """
-    profile = current_user.get_decrypted_profile()
-    account = (
-        db.query(DemoPaymentAccount)
-        .filter(DemoPaymentAccount.user_id == current_user.id)
-        .first()
-    )
-    balance = account.simulated_balance if account else 0.0
 
-    return UserProfileResponse(
-        id=current_user.id,
-        full_name=profile["full_name"],
-        phone=profile["phone"],
-        email=profile["email"],
-        upi_id=profile["upi_id"],
-        status=current_user.status,
-        simulated_balance=balance,
-        currency="INR",
-        is_simulated_environment=True,
-        created_at=profile["created_at"]
-    )
+@router.get("/me", response_model=MeResponse)
+def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    account = db.query(DemoPaymentAccount).filter(DemoPaymentAccount.user_id == user.id).first()
+    return MeResponse(**user_profile(user).model_dump(),
+                      simulated_balance=money(account.simulated_balance if account else 0), mode=mode_label())
+
+
+@router.get("/me/security-events", response_model=List[SecurityEventView])
+def my_security_events(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The signed-in user's own recent security events (sign-in failures, blocked payments)."""
+    rows = (db.query(SecurityEvent).filter(SecurityEvent.user_id == str(user.id))
+            .order_by(SecurityEvent.created_at.desc()).limit(20).all())
+    return [SecurityEventView(event_type=r.event_type, severity=r.severity, created_at=iso(r.created_at)) for r in rows]

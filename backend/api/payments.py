@@ -1,170 +1,94 @@
-import json
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+"""Payment endpoints.
 
-from backend.api.deps import get_current_user
+Flow: POST /payments/assess -> (demo verification in the UI) -> POST /payments.
+Both take an `Idempotency-Key` header: retrying with the same key returns the
+same attempt and never creates or submits a second payment.
+"""
+
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, Query
+from sqlalchemy.orm import Session
+
+from backend.api.deps import get_current_user, user_rate_limit
+from backend.api.presenters import iso, payment_view
+from backend.core.services import get_payment_service
 from backend.database.database import get_db
-from backend.database.models import User, PaymentAttempt, RiskAssessment
+from backend.database.models import PaymentAttempt, RiskAssessment, User
+from backend.domain.payment_service import PaymentError
 from backend.schemas import (
-    PaymentAssessRequest, PaymentVerifyRequest, PaymentAttemptResponse, RiskAssessmentResponse
+    AssessRequest, AuthorizeRequest, PaymentListResponse, PaymentStatusResponse, PaymentView,
 )
-from backend.domain.payment_service import payment_service, PaymentExecutionError
-from backend.core.rate_limit import rate_limit
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
-def _format_payment_response(p: PaymentAttempt) -> PaymentAttemptResponse:
-    risk_resp = None
-    if p.risk_assessment:
-        ra = p.risk_assessment
-        reasons = []
-        try:
-            raw = json.loads(ra.reason_codes_json)
-            reasons = raw if isinstance(raw, list) else []
-        except Exception:
-            reasons = []
+STATES = {"DRAFT", "ASSESSING", "NEEDS_VERIFICATION", "BLOCKED", "PENDING", "COMPLETED", "FAILED", "REVERSED"}
+IDEMPOTENCY_HEADER = Header(..., alias="Idempotency-Key", min_length=8, max_length=100)
 
-        risk_resp = RiskAssessmentResponse(
-            raw_risk_score=ra.raw_risk_score,
-            calibrated_probability=ra.calibrated_probability,
-            risk_band=ra.risk_band,
-            decision=ra.decision,
-            reason_codes=reasons,
-            model_version=ra.model_version
-        )
 
-    return PaymentAttemptResponse(
-        id=p.id,
-        reference=p.reference,
-        sender_user_id=p.sender_user_id,
-        recipient_upi=p.recipient_upi_masked,
-        amount=p.amount,
-        currency=p.currency,
-        state=p.state,
-        provider=p.provider,
-        idempotency_key=p.idempotency_key,
-        failure_reason=p.failure_reason,
-        risk_assessment=risk_resp,
-        is_simulated=True,
-        created_at=p.created_at.isoformat(),
-        updated_at=p.updated_at.isoformat()
-    )
+@router.post("/assess", response_model=PaymentView, status_code=201)
+def assess_payment(payload: AssessRequest, idempotency_key: str = IDEMPOTENCY_HEADER,
+                   user: User = Depends(user_rate_limit("payment_assess", 20, 60)), db: Session = Depends(get_db)):
+    """Create a payment attempt and return its fraud-risk assessment.
 
-@router.post("/assess", response_model=PaymentAttemptResponse)
-@router.post("", response_model=PaymentAttemptResponse)
-def initiate_or_assess_payment(
-    payload: PaymentAssessRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    _limiter: bool = Depends(rate_limit("payment_assess", max_requests=15, window_seconds=60))
-):
+    VERY_HIGH risk attempts are recorded as BLOCKED. MEDIUM and HIGH need demo
+    verification before authorisation. Balances do not change here.
     """
-    Initiates payment assessment and state machine progression:
-    - Verifies idempotency key
-    - Performs XGBoost fraud risk assessment
-    - LOW risk: executes payment through MockPaymentProvider immediately -> COMPLETED
-    - MEDIUM/HIGH risk: transitions to NEEDS_VERIFICATION awaiting demo verification
-    - VERY_HIGH risk: transitions to BLOCKED without altering balances
+    attempt = get_payment_service().assess(
+        db, user, payload.recipient_upi, payload.amount, idempotency_key, note=payload.note,
+        simulated_device=payload.simulated_context.device, simulated_location=payload.simulated_context.location)
+    return payment_view(attempt, include_timeline=True)
+
+
+@router.post("", response_model=PaymentView)
+def authorize_payment(payload: AuthorizeRequest, idempotency_key: str = IDEMPOTENCY_HEADER,
+                      user: User = Depends(user_rate_limit("payment_authorize", 20, 60)),
+                      db: Session = Depends(get_db)):
+    """Authorise an assessed attempt and submit it to the payment rail (the mock rail in simulation).
+
+    Yogii never asks for a UPI PIN. In a future live integration, the sponsor
+    bank's own authentication journey would handle that step.
     """
-    try:
-        attempt = payment_service.assess_and_create_attempt(
-            db=db,
-            sender_user_id=current_user.id,
-            recipient_upi=payload.recipient_upi,
-            amount=payload.amount,
-            idempotency_key=payload.idempotency_key,
-            payment_type=payload.payment_type,
-            device_id=payload.device_id or "demo-device",
-            location=payload.location or "Chennai"
-        )
-        return _format_payment_response(attempt)
-    except PaymentExecutionError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    attempt = get_payment_service().authorize(
+        db, user, payload.payment_id, idempotency_key, payload.demo_verification_confirmed, payload.simulated_outcome)
+    return payment_view(attempt, include_timeline=True)
 
-@router.post("/{payment_id}/verify", response_model=PaymentAttemptResponse)
-def verify_payment(
-    payment_id: int,
-    payload: PaymentVerifyRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    _limiter: bool = Depends(rate_limit("payment_verify", max_requests=10, window_seconds=60))
-):
-    """
-    Submits Demo Verification for MEDIUM or HIGH risk transactions.
-    Explicitly labeled as DEMO VERIFICATION. Never collects UPI PIN, OTP, or passwords.
-    """
-    try:
-        attempt = payment_service.verify_and_continue_payment(
-            db=db,
-            payment_id=payment_id,
-            sender_user_id=current_user.id,
-            demo_verification_confirmed=payload.demo_verification_confirmed
-        )
-        return _format_payment_response(attempt)
-    except PaymentExecutionError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-@router.get("", response_model=List[PaymentAttemptResponse])
-def get_payment_history(
-    limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    status_filter: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Returns paginated payment history for the authenticated user with risk metadata."""
-    query = (
-        db.query(PaymentAttempt)
-        .filter(PaymentAttempt.sender_user_id == current_user.id)
-    )
-    if status_filter:
-        query = query.filter(PaymentAttempt.state == status_filter)
+@router.get("", response_model=PaymentListResponse)
+def list_payments(state: Optional[str] = Query(None), band: Optional[str] = Query(None),
+                  limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    q = db.query(PaymentAttempt).filter(PaymentAttempt.sender_user_id == user.id)
+    if state:
+        if state not in STATES:
+            raise PaymentError("Unknown state filter.", 422, "invalid_filter")
+        q = q.filter(PaymentAttempt.state == state)
+    if band:
+        if band not in ("LOW", "MEDIUM", "HIGH", "VERY_HIGH"):
+            raise PaymentError("Unknown risk band filter.", 422, "invalid_filter")
+        q = q.join(RiskAssessment).filter(RiskAssessment.risk_band == band)
+    total = q.count()
+    rows = q.order_by(PaymentAttempt.created_at.desc(), PaymentAttempt.id.desc()).offset(offset).limit(limit).all()
+    return PaymentListResponse(items=[payment_view(p) for p in rows], total=total, limit=limit, offset=offset)
 
-    payments = (
-        query.order_by(desc(PaymentAttempt.created_at))
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-    return [_format_payment_response(p) for p in payments]
 
-@router.get("/{payment_id}", response_model=PaymentAttemptResponse)
-def get_payment_detail(
-    payment_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Returns details of a specific payment attempt."""
-    payment = (
-        db.query(PaymentAttempt)
-        .filter(PaymentAttempt.id == payment_id, PaymentAttempt.sender_user_id == current_user.id)
-        .first()
-    )
-    if not payment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment attempt not found.")
-    return _format_payment_response(payment)
+@router.get("/{payment_id}", response_model=PaymentView)
+def get_payment(payment_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    attempt = get_payment_service()._get_owned(db, payment_id, user.id)
+    return payment_view(attempt, include_timeline=True)
 
-@router.get("/{payment_id}/status")
-def get_payment_status(
-    payment_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Returns current state and provider execution status of a payment."""
-    payment = (
-        db.query(PaymentAttempt)
-        .filter(PaymentAttempt.id == payment_id, PaymentAttempt.sender_user_id == current_user.id)
-        .first()
-    )
-    if not payment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment attempt not found.")
-    return {
-        "payment_id": payment.id,
-        "reference": payment.reference,
-        "state": payment.state,
-        "provider": payment.provider,
-        "is_simulated": True,
-        "updated_at": payment.updated_at.isoformat()
-    }
+
+@router.get("/{payment_id}/status", response_model=PaymentStatusResponse)
+def payment_status(payment_id: int, user: User = Depends(user_rate_limit("payment_status", 60, 60)),
+                   db: Session = Depends(get_db)):
+    """Current state. For PENDING payments this asks the rail for the authoritative status."""
+    attempt = get_payment_service().refresh_status(db, user, payment_id)
+    return PaymentStatusResponse(id=attempt.id, reference=attempt.reference, state=attempt.state,
+                                 provider=attempt.provider, is_simulated=attempt.is_simulated,
+                                 updated_at=iso(attempt.updated_at))
+
+
+@router.post("/{payment_id}/cancel", response_model=PaymentView)
+def cancel_payment(payment_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Cancel an assessed payment before authorisation. It is kept for audit as FAILED."""
+    return payment_view(get_payment_service().cancel(db, user, payment_id), include_timeline=True)

@@ -1,19 +1,20 @@
+# Yogii backend (Python 3.11+)
 fastapi==0.115.12
 uvicorn[standard]==0.34.0
 sqlalchemy==2.0.40
 pydantic==2.11.3
-xgboost==3.0.0
-numpy>=1.26.0
-pandas>=2.2.0
-networkx>=3.4.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
 argon2-cffi>=23.1.0
 cryptography>=42.0.0
 pyjwt>=2.8.0
 email-validator>=2.1.0
-alembic>=1.13.0
-psycopg2-binary>=2.9.9
-redis>=5.0.0
-httpx>=0.27.0
+# Machine learning and transaction graph
+xgboost>=2.0,<4
+scikit-learn>=1.4
+pandas>=2.2.0
+numpy>=1.26.0
+networkx>=3.4.0
+# Tests
 pytest>=8.0.0
-pytest-asyncio>=0.23.0
-python-multipart>=0.0.9
+httpx>=0.27.0

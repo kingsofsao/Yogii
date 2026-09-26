@@ -1,29 +1,45 @@
+"""Back up the Yogii database.
+
+    python -m backend.scripts.backup [output-path]
+
+PostgreSQL: `pg_dump --format=custom` (restore with backend.scripts.restore).
+SQLite: an online, consistent copy using SQLite's backup API.
+
+Backups contain encrypted personal data and keyed hashes. They are only
+useful together with YOGII_ENCRYPTION_KEY / YOGII_LOOKUP_HMAC_KEY, which must
+be stored separately (never in the same place as the backup).
+"""
+
 import os
-import sys
+import sqlite3
 import subprocess
+import sys
 from datetime import datetime, timezone
 
-def backup_database(output_file: str = None):
-    """
-    Creates a database backup.
-    Supports PostgreSQL via pg_dump and SQLite via direct file copy.
-    """
-    db_url = os.getenv("DATABASE_URL", "sqlite:///./data/yogii.db")
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    out = output_file or f"backup_yogii_{timestamp}.sql"
+from backend.core.config import settings
 
-    if "postgres" in db_url:
-        print(f"Executing PostgreSQL backup via pg_dump to {out}...")
-        cmd = ["pg_dump", db_url, "-f", out]
-        subprocess.run(cmd, check=True)
-        print(f"PostgreSQL backup successfully written to {out}")
-    elif "sqlite" in db_url:
-        import shutil
-        sqlite_file = db_url.replace("sqlite:///", "")
-        dest = out.replace(".sql", ".db")
-        shutil.copyfile(sqlite_file, dest)
-        print(f"SQLite backup successfully created at {dest}")
+
+def backup_database(output: str | None = None) -> str:
+    url = settings.DATABASE_URL
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    os.makedirs("backups", exist_ok=True)
+    if url.startswith("postgresql"):
+        out = output or f"backups/yogii-{stamp}.dump"
+        subprocess.run(["pg_dump", "--format=custom", "--no-owner", "--no-privileges", "--file", out, url], check=True)
+    elif url.startswith("sqlite"):
+        out = output or f"backups/yogii-{stamp}.db"
+        src = sqlite3.connect(url.replace("sqlite:///", ""))
+        dst = sqlite3.connect(out)
+        with dst:
+            src.backup(dst)
+        src.close()
+        dst.close()
+    else:
+        raise SystemExit(f"Unsupported database URL scheme for backup: {url.split(':', 1)[0]}")
+    os.chmod(out, 0o600)
+    print(f"Backup written to {out} (permissions 600).")
+    return out
+
 
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else None
-    backup_database(target)
+    backup_database(sys.argv[1] if len(sys.argv) > 1 else None)

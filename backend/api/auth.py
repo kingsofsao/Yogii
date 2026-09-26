@@ -1,163 +1,123 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.database.database import get_db
-from backend.database.models import User, DemoPaymentAccount
-from backend.schemas import RegisterRequest, LoginRequest, TokenResponse
-from backend.core.encryption import encryption_service, hash_password, verify_password
-from backend.core.auth import create_access_token
+from backend.api.deps import get_current_user
+from backend.api.presenters import user_profile
 from backend.core.audit import log_audit_event, log_security_event
-from backend.core.rate_limit import rate_limit
+from backend.core.auth import clear_session_cookies, create_session_token, set_session_cookies
+from backend.core.config import mode_label, settings
+from backend.core.encryption import (
+    DUMMY_PASSWORD_HASH, encryption_service, hash_password, password_needs_rehash, verify_password,
+)
+from backend.core.rate_limit import (
+    clear_login_failures, client_ip, login_locked, rate_limit, record_login_failure,
+)
+from backend.core.validation import InvalidInput, normalize_email, normalize_phone, normalize_upi_id
+from backend.database.database import get_db
+from backend.database.models import DemoPaymentAccount, User, UserPreference
+from backend.schemas import LoginRequest, RegisterRequest, SessionResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-@router.post("/register", response_model=TokenResponse)
-def register(
-    payload: RegisterRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-    _limiter: bool = Depends(rate_limit("register", max_requests=5, window_seconds=60))
-):
-    """
-    Registers a new Yogii user.
-    - Encrypts PII fields (name, phone, email, upi_id) with AES-256-GCM.
-    - Stores blind indexes for searchable equality.
-    - Hashes password using Argon2id.
-    - Automatically provisions a simulated DemoPaymentAccount with ₹50,000 demo balance.
-    """
-    email_hash = encryption_service.blind_index(payload.email)
-    upi_hash = encryption_service.blind_index(payload.upi_id)
-    phone_hash = encryption_service.blind_index(payload.phone)
+GENERIC_LOGIN_ERROR = "The details you entered don't match an account. Check them and try again."
 
-    # Check uniqueness via blind indexes
-    existing_user = (
-        db.query(User)
-        .filter((User.email_lookup_hash == email_hash) | (User.upi_id_lookup_hash == upi_hash))
-        .first()
-    )
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with this email or UPI ID already exists."
-        )
 
-    # Encrypt PII
-    user = User(
-        full_name_enc=encryption_service.encrypt(payload.full_name),
-        phone_enc=encryption_service.encrypt(payload.phone),
-        email_enc=encryption_service.encrypt(payload.email),
-        upi_id_enc=encryption_service.encrypt(payload.upi_id),
-        device_id_enc=encryption_service.encrypt("demo-device-default"),
-        phone_lookup_hash=phone_hash,
-        email_lookup_hash=email_hash,
-        upi_id_lookup_hash=upi_hash,
-        password_hash=hash_password(payload.password),
-        status="ACTIVE",
-        created_at=datetime.now(timezone.utc)
-    )
+def _start_session(response: Response, user: User) -> SessionResponse:
+    token, csrf, expires = create_session_token(user.id, user.token_version)
+    set_session_cookies(response, token, csrf, expires)
+    return SessionResponse(user=user_profile(user), csrf_token=csrf, expires_at=expires.isoformat(),
+                           mode=mode_label())
+
+
+def _identifier_hash(identifier: str) -> str:
+    """Normalise email / phone / UPI ID the same way registration did, then blind-index it."""
+    raw = identifier.strip()
+    for fn in (normalize_upi_id, normalize_email, normalize_phone) if "@" in raw else (normalize_phone,):
+        try:
+            return encryption_service.blind_index(fn(raw))
+        except InvalidInput:
+            continue
+    return encryption_service.blind_index(raw.lower())
+
+
+@router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit("register", 5, 60))])
+def register(payload: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)):
+    """Create a demo user with a SIMULATED account and starting demo balance."""
+    hashes = {k: encryption_service.blind_index(getattr(payload, k)) for k in ("email", "phone", "upi_id")}
+    conflict = db.query(User).filter(
+        (User.email_lookup_hash == hashes["email"]) | (User.phone_lookup_hash == hashes["phone"])
+        | (User.upi_id_lookup_hash == hashes["upi_id"])).first()
+    if conflict:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "An account already uses this email, mobile number or UPI ID.")
+    now = datetime.now(timezone.utc)
+    user = User(full_name_enc=encryption_service.encrypt(payload.full_name),
+                phone_enc=encryption_service.encrypt(payload.phone),
+                email_enc=encryption_service.encrypt(payload.email),
+                upi_id_enc=encryption_service.encrypt(payload.upi_id),
+                phone_lookup_hash=hashes["phone"], email_lookup_hash=hashes["email"],
+                upi_id_lookup_hash=hashes["upi_id"], password_hash=hash_password(payload.password),
+                status="ACTIVE", created_at=now, last_login_at=now)
     db.add(user)
-    db.flush()
-
-    # Provision simulated demo payment account
-    account = DemoPaymentAccount(
-        user_id=user.id,
-        simulated_balance=50000.0,
-        currency="INR",
-        status="ACTIVE",
-        created_at=datetime.now(timezone.utc)
-    )
-    db.add(account)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "An account already uses this email, mobile number or UPI ID.")
+    db.add(DemoPaymentAccount(user_id=user.id, simulated_balance=Decimal(settings.DEMO_STARTING_BALANCE),
+                              currency="INR", status="ACTIVE", is_simulated=True, created_at=now))
+    db.add(UserPreference(user_id=user.id))
+    log_audit_event(str(user.id), "user_registered", f"user:{user.id}", "SUCCESS", db_session=db)
     db.commit()
-    db.refresh(user)
+    return _start_session(response, user)
 
-    log_audit_event(
-        actor_id=str(user.id),
-        action="user_registered",
-        resource=f"user:{user.id}",
-        result="SUCCESS",
-        metadata={"email_hash": email_hash[:8]},
-        db_session=db
-    )
 
-    token = create_access_token({"sub": str(user.id)})
-    return TokenResponse(
-        access_token=token,
-        token_type="bearer",
-        user=user.get_decrypted_profile()
-    )
+@router.post("/login", response_model=SessionResponse, dependencies=[Depends(rate_limit("login", 10, 60))])
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
+    """Sign in with email, mobile number or UPI ID. Errors never reveal which part was wrong."""
+    ip = client_ip(request)
+    ident = _identifier_hash(payload.identifier)
+    if login_locked(ident):
+        log_security_event("login_locked", "MEDIUM", ip_address=ip, details={"id": ident[:8]}, db_session=db)
+        db.commit()
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                            "Too many failed sign-in attempts. Try again in a few minutes.")
+    user = db.query(User).filter((User.email_lookup_hash == ident) | (User.phone_lookup_hash == ident)
+                                 | (User.upi_id_lookup_hash == ident)).first()
+    # Verify against a dummy hash when the user doesn't exist, so timing doesn't leak it.
+    ok = verify_password(payload.password, user.password_hash if user else DUMMY_PASSWORD_HASH)
+    if not user or not ok or user.status != "ACTIVE":
+        record_login_failure(ident)
+        log_security_event("login_failure", "MEDIUM", ip_address=ip, user_id=str(user.id) if user else None,
+                           details={"id": ident[:8]}, db_session=db)
+        db.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, GENERIC_LOGIN_ERROR)
+    clear_login_failures(ident)
+    if password_needs_rehash(user.password_hash):
+        user.password_hash = hash_password(payload.password)
+    user.last_login_at = datetime.now(timezone.utc)
+    log_audit_event(str(user.id), "user_login", f"user:{user.id}", "SUCCESS", {"ip": ip}, db_session=db)
+    db.commit()
+    return _start_session(response, user)
 
-@router.post("/login", response_model=TokenResponse)
-def login(
-    payload: LoginRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-    _limiter: bool = Depends(rate_limit("login", max_requests=10, window_seconds=60))
-):
-    """
-    Authenticates user using email, phone, or UPI ID and password.
-    Returns generic error to prevent user enumeration.
-    """
-    client_ip = request.client.host if request.client else "unknown"
-    lookup_hash = encryption_service.blind_index(payload.email_or_phone_or_upi)
-
-    user = (
-        db.query(User)
-        .filter(
-            (User.email_lookup_hash == lookup_hash) |
-            (User.phone_lookup_hash == lookup_hash) |
-            (User.upi_id_lookup_hash == lookup_hash)
-        )
-        .first()
-    )
-
-    generic_error = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid credentials. Please verify your identifier and password."
-    )
-
-    if not user:
-        log_security_event(
-            event_type="login_failure",
-            severity="MEDIUM",
-            ip_address=client_ip,
-            details={"identifier_hash": lookup_hash[:8]},
-            db_session=db
-        )
-        raise generic_error
-
-    if not verify_password(payload.password, user.password_hash):
-        log_security_event(
-            event_type="login_failure",
-            severity="MEDIUM",
-            ip_address=client_ip,
-            user_id=str(user.id),
-            details={"reason": "password_mismatch"},
-            db_session=db
-        )
-        raise generic_error
-
-    token = create_access_token({"sub": str(user.id)})
-
-    log_audit_event(
-        actor_id=str(user.id),
-        action="user_login",
-        resource=f"user:{user.id}",
-        result="SUCCESS",
-        metadata={"ip": client_ip},
-        db_session=db
-    )
-
-    return TokenResponse(
-        access_token=token,
-        token_type="bearer",
-        user=user.get_decrypted_profile()
-    )
 
 @router.post("/logout")
-def logout():
-    """
-    Logs out the current session.
-    Stateless client-side token discard with server-side audit.
-    """
-    return {"status": "ok", "message": "Successfully signed out of Yogii."}
+def logout(response: Response, user: User = Depends(get_current_user)):
+    """End this browser's session."""
+    clear_session_cookies(response)
+    return {"status": "signed_out"}
+
+
+@router.post("/logout-all")
+def logout_all(response: Response, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """End every session for this account by bumping the token version."""
+    user.token_version += 1
+    log_audit_event(str(user.id), "sessions_revoked", f"user:{user.id}", "SUCCESS", db_session=db)
+    db.commit()
+    clear_session_cookies(response)
+    return {"status": "signed_out_everywhere"}
